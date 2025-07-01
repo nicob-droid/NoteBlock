@@ -1,0 +1,36 @@
+<resources>
+    <string name="app_name">NoteBlock</string>
+    <string name="app_widget_name">NoteBlock 📝"</string>
+    <string name="enter_4_digits">Entrez votre PIN à 4 chiffres</string>
+    <string name="pin_must_be_4_digits">Le PIN doit comporter 4 chiffres</string>
+    <string name="pin_set_welcome">PIN enregistré. Bienvenue !</string>
+    <string name="incorrect_pin">PIN incorrect</string>
+    <string name="delete_note_confirmation_title">Confirmer la suppression</string>
+    <string name="delete_note_confirmation_message">Êtes-vous sûr de vouloir supprimer cette note ?</string>
+    <string name="yes">Oui</string>
+    <string name="no">Non</string>
+    <string name="note_deleted">Note supprimée</string>
+    <string name="delete_failed">Échec de la suppression</string>
+    <string name="enter_old_pin">Entrez l\'ancien PIN</string>
+    <string name="enter_new_pin">Entrez le nouveau PIN</string>
+    <string name="confirm_new_pin">Confirmez le nouveau PIN</string>
+    <string name="change_pin">Changer le PIN</string>
+    <string name="pins_do_not_match">Les PIN ne correspondent pas</string>
+    <string name="no_pin_set">Aucun PIN défini</string>
+    <string name="incorrect_old_pin">Ancien PIN incorrect</string>
+    <string name="pin_changed_success">PIN modifié avec succès</string>
+    <string name="add_note">"Ajouter une note"</string>
+    <string name="title">Titre</string>
+    <string name="note_content">Contenu de la note</string>
+    <string name="save">Sauvegarder</string>
+    <string name="delete">Supprimer</string>
+    <string name="share">Partager</string>
+    <string name="note_empty">La note est vide</string>
+    <string name="share_note_with">Partager la note via</string>
+    <string name="title_empty">Le titre ne doit pas être vide</string>
+    <string name="note_added">Note ajoutée</string>
+    <string name="note_updated">Note modifiée</string>
+    <string name="new_note">➕ Nouvelle note</string>
+    <string name="modify_pin_error">Erreur lors du changement de PIN</string>
+    <string name="modify_color">Modifier la couleur</string>
+</resources>

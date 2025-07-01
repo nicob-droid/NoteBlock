@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/color_picker_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <View
+        android:id="@+id/color_white"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="#EEEEEE"
+        android:layout_margin="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <View
+        android:id="@+id/color_red"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="#F44336"
+        android:layout_margin="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <View
+        android:id="@+id/color_green"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="#4CAF50"
+        android:layout_margin="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <View
+        android:id="@+id/color_blue"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="#2196F3"
+        android:layout_margin="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <View
+        android:id="@+id/color_yellow"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="#FFEB3B"
+        android:layout_margin="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+    <View
+        android:id="@+id/color_purple"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="#9C27B0"
+        android:layout_margin="8dp"
+        android:clickable="true"
+        android:focusable="true"/>
+
+</LinearLayout>
