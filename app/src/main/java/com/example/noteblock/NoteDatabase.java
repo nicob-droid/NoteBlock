@@ -17,12 +17,13 @@ import java.util.List;
 public class NoteDatabase extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "notes_db";
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
     public static final String TABLE_NAME = "notes";
     public static final String COLUMN_ID = "id";
     public static final String COLUMN_TITLE = "title";
     public static final String COLUMN_CONTENT = "content";
     public static final String COLUMN_COLOR = "color";
+    public static final String COLUMN_POSITION = "position";
 
     private byte[] aesKey;
 
@@ -38,15 +39,16 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_TITLE + " TEXT,"
                 + COLUMN_CONTENT + " TEXT,"
-                + COLUMN_COLOR + " INTEGER DEFAULT 16777215"
+                + COLUMN_COLOR + " INTEGER DEFAULT 16777215,"
+                + COLUMN_POSITION + " INTEGER"
                 + ")";
         db.execSQL(CREATE_TABLE);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion < 2) {
-            db.execSQL("ALTER TABLE " + TABLE_NAME + " ADD COLUMN " + COLUMN_COLOR + " INTEGER DEFAULT 16777215");
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE " + TABLE_NAME + " ADD COLUMN " + COLUMN_POSITION + " INTEGER");
         }
     }
 
@@ -65,6 +67,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
         cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
         cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
         cv.put(COLUMN_COLOR, color);
+        //cv.put(COLUMN_POSITION, position);
         db.insert(TABLE_NAME, null, cv);
     }
 
@@ -86,6 +89,17 @@ public class NoteDatabase extends SQLiteOpenHelper {
         db.update(TABLE_NAME, cv, "id=?", new String[]{String.valueOf(id)});
     }
 
+    public void updateAllNotePositions(List<Note> notesList) throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+
+        for (int i = 0; i < notesList.size(); i++) {
+            int id = notesList.get(i).getId();
+            ContentValues cv = new ContentValues();
+            cv.put(COLUMN_POSITION, i);
+            db.update(TABLE_NAME, cv, "id = ?", new String[]{String.valueOf(id)});
+        }
+    }
+
     public int deleteNoteById(int id) {
         SQLiteDatabase db = getWritableDatabase();
         return db.delete(TABLE_NAME, "id = ?", new String[]{String.valueOf(id)});
@@ -94,7 +108,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public List<Note> getAllNotes() {
         List<Note> notes = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_NAME, null, null, null, null, null, null);
+        Cursor cursor = db.query(TABLE_NAME, null, null, null, null, null, "position ASC");
         if (cursor != null) {
             while (cursor.moveToNext()) {
                 int id = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID));
@@ -139,7 +153,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public List<Note> getAllNotesRaw() {
         List<Note> notes = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, title, content, color FROM notes", null);
+        Cursor cursor = db.rawQuery("SELECT id, title, content, color FROM notes ORDER BY position ASC", null);
 
         if (cursor.moveToFirst()) {
             do {

@@ -3,6 +3,7 @@ package com.example.noteblock;
 import static com.example.noteblock.MainActivity.KEY_PIN_HASH;
 import static com.example.noteblock.MainActivity.PREFS_NAME;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -21,6 +22,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -29,6 +31,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnNoteClickListener {
@@ -51,37 +54,61 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         /*notesList.add(new Note("Note 1", "Contenu de la note 1"));
         notesList.add(new Note("Note 2", "Contenu de la note 2"));*/
 
+        // Récupérer le PIN
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
+        // Récupérer la Clef AES
         byte[] aesKey = HashUtils.hexStringToByteArray(storedPinHash);
+        // Init database
         db = new NoteDatabase(this, aesKey);
-
+        // Charger la database
         loadNotes();
-        /*notesList = db.getAllNotes();
-        for (Note note : notesList) {
-            Log.d("DB_NOTE", "ID: " + note.getId()
-                    + " | Title: " + note.getTitle()
-                    + " | Content: " + note.getContent());
-        }*/
-
-
-        /*adapter = new NotesAdapter(notesList, position -> {
-            Note clickedNote = notesList.get(position);
-            // ouvrir EditNoteActivity et passer la note
-            Intent intent = new Intent(this, EditNoteActivity.class);
-            intent.putExtra("note_id", clickedNote.getId()); // on passe l'ID de la note
-            startActivity(intent);
-        });*/
-
+        // Init affichage des notes
         adapter = new NotesAdapter(notesList, this);
         recyclerView.setAdapter(adapter);
-
+        // Init du floating button
         FloatingActionButton fab = findViewById(R.id.fab_add_note);
         fab.setOnClickListener(v -> {
             // Ouvre activité d'édition pour créer une nouvelle note
             Intent intent = new Intent(this, EditNoteActivity.class);
             startActivity(intent);
         });
+
+        // Ajouter un ItemTouchHelper pour gérer le déplacement des notes
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
+                ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
+
+            @Override
+            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+                int fromPosition = viewHolder.getAdapterPosition();
+                int toPosition = target.getAdapterPosition();
+                // Mets à jour les données de ta liste (ex : swap dans l'ArrayList)
+                Collections.swap(notesList, fromPosition, toPosition);
+                // Notifie l'adapter du déplacement
+                adapter.notifyItemMoved(fromPosition, toPosition);
+
+                return true;
+            }
+            @Override
+            public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
+                super.clearView(recyclerView, viewHolder);
+
+                // L'utilisateur a fini de déplacer
+                // => maintenant on sauvegarde la nouvelle position dans la base
+                // Met à jour les positions dans la base
+                updateItemPositionsInDatabase();
+            }
+            @Override
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                // Ici, pas de swipe donc rien à faire
+            }
+            @Override
+            public boolean isLongPressDragEnabled() {
+                return true; // Active le drag au long press
+            }
+        });
+        itemTouchHelper.attachToRecyclerView(recyclerView);
+
     }
 
     private void loadNotes() {
@@ -200,4 +227,16 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
             runOnUiThread(this::loadNotes);
         }).start();
     }
+
+    private void updateItemPositionsInDatabase() {
+        new Thread(() -> {
+            try {
+                db.updateAllNotePositions(notesList);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            runOnUiThread(this::loadNotes);
+        }).start();
+    }
+
 }
