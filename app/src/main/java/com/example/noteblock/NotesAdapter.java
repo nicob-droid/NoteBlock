@@ -21,6 +21,7 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
 
     private List<Note> notes;
     private OnNoteClickListener listener;
+    private int selectedPosition = RecyclerView.NO_POSITION; // -1
 
     public NotesAdapter(List<Note> notes, OnNoteClickListener listener) {
         this.notes = notes;
@@ -30,6 +31,10 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
     public void setNotes(List<Note> notes) {
         this.notes = notes;
         notifyDataSetChanged();
+    }
+
+    public int getSelectedPosition() {
+        return selectedPosition;
     }
 
     @NonNull
@@ -48,6 +53,11 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         holder.cardView.setCardBackgroundColor(note.getColor());
         holder.cardView.setOnClickListener(v -> {
             if (listener != null) listener.onNoteClick(note);
+            // Met à jour la position sélectionnée et rafraîchit la liste
+            int previousPosition = selectedPosition;
+            selectedPosition = holder.getAdapterPosition();
+            notifyItemChanged(previousPosition);
+            notifyItemChanged(selectedPosition);
         });
 
         holder.buttonColorPicker.setOnClickListener(v -> {
@@ -73,5 +83,6 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
             buttonColorPicker = itemView.findViewById(R.id.button_color_picker);
         }
     }
+
 }
 

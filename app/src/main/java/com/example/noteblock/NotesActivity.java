@@ -29,21 +29,30 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.noteblock.Utils.HashUtils;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnNoteClickListener {
-
+    private static final String TAG = "NotesActivity";
     private RecyclerView recyclerView;
     private NotesAdapter adapter;
     private List<Note> notesList;
     private NoteDatabase db;
+    private byte[] aesKey;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_notes);
 
         recyclerView = findViewById(R.id.notes_recycler_view);
@@ -58,7 +67,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
         // Récupérer la Clef AES
-        byte[] aesKey = HashUtils.hexStringToByteArray(storedPinHash);
+        aesKey = HashUtils.hexStringToByteArray(storedPinHash);
         // Init database
         db = new NoteDatabase(this, aesKey);
         // Charger la database
@@ -122,10 +131,14 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
     protected void onResume() {
         super.onResume();
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
-        byte[] aesKey = HashUtils.hexStringToByteArray(storedPinHash);
+        // Recharge localement les notes depuis SQLite (optionnel)
+        loadNotesFromLocalDatabase();
 
+        // Synchronise depuis Firestore pour récupérer les notes partagées/mises à jour par d'autres
+        fetchNotesFromFirestoreIfLoggedIn();
+    }
+
+    private void loadNotesFromLocalDatabase() {
         try {
             List<Note> encryptedNotes = db.getAllNotesRaw(); // notes chiffrées
             List<Note> decryptedNotes = new ArrayList<>();
@@ -133,7 +146,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
             for (Note note : encryptedNotes) {
                 String title = HashUtils.decrypt(note.getTitle(), aesKey);
                 String content = HashUtils.decrypt(note.getContent(), aesKey);
-                Note decryptedNote = new Note(note.getId(), title, content, note.getColor());
+                Note decryptedNote = new Note(note.getId(), title, content, note.getColor(), note.getPosition());
                 decryptedNotes.add(decryptedNote);
             }
 
@@ -146,7 +159,6 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
             e.printStackTrace();
             Toast.makeText(this, "Erreur lors du chargement des notes", Toast.LENGTH_SHORT).show();
         }
-
     }
 
     @Override
@@ -173,6 +185,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         Intent intent = new Intent(this, EditNoteActivity.class);
         intent.putExtra("note_id", note.getId()); // ou autre méthode pour identifier la note
         intent.putExtra("note_color", note.getColor());
+        intent.putExtra("note_position", note.getPosition());
         startActivity(intent);
     }
 
@@ -220,7 +233,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         note.setColor(newColor);
         new Thread(() -> {
             try {
-                db.updateNote(note.getId(), note.getTitle(), note.getContent(), newColor);
+                db.updateNote(note.getId(), note.getTitle(), note.getContent(), newColor, note.getPosition());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -239,4 +252,47 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         }).start();
     }
 
+    private void fetchNotesFromFirestoreIfLoggedIn() {
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            fetchNotesFromFirestore(firebaseUser.getUid());
+        } else {
+            // Pas connecté, afficher local ou autre
+        }
+    }
+
+    private void fetchNotesFromFirestore(String userId) {
+        FirebaseFirestore firebase = FirebaseFirestore.getInstance();
+        Log.d("FirebaseTest", "Firestore instance created: " + (db != null));
+        firebase.collection("users")
+                .document(userId)
+                .collection("notes")
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        QuerySnapshot querySnapshot = task.getResult();
+                        if (querySnapshot != null) {
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                long id = document.getLong("id");
+                                String encryptedTitle = document.getString("title");
+                                String encryptedContent = document.getString("content");
+                                int color = document.getLong("color").intValue();
+                                int position = document.getLong("position").intValue();
+
+                                try {
+                                    String title = HashUtils.decrypt(encryptedTitle, aesKey);
+                                    String content = HashUtils.decrypt(encryptedContent, aesKey);
+
+                                    Note note = new Note(id, title, content, color, position);
+                                    db.insertOrUpdateNote(note);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        } else {
+                            Log.w(TAG, "Erreur fetch Firestore", task.getException());
+                        }
+                    }
+                });
+    }
 }

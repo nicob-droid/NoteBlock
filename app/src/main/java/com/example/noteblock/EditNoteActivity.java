@@ -23,8 +23,12 @@ import androidx.recyclerview.widget.DiffUtil;
 
 import com.example.noteblock.Utils.HashUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class EditNoteActivity extends AppCompatActivity {
     private static final String TAG = "EditNoteActivity";
@@ -35,8 +39,9 @@ public class EditNoteActivity extends AppCompatActivity {
     private FloatingActionButton btnDelete, btnShare;
 
     private NoteDatabase db;
-    private int noteId;
-    Note note;
+    private long noteId;
+    private Note note;
+    private int selectedPosition = 0;  // par défaut première position
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,8 +88,9 @@ public class EditNoteActivity extends AppCompatActivity {
         btnDelete = findViewById(R.id.fab_delete);
         ll_delete = findViewById(R.id.ll_delete);
         btnShare = findViewById(R.id.fab_share);
-        noteId = getIntent().getIntExtra("note_id", -1);
+        noteId = getIntent().getLongExtra("note_id", -1);
         selectedColor = getIntent().getIntExtra("note_color", Color.WHITE);
+        selectedPosition = getIntent().getIntExtra("note_position", -1);
     }
 
     private void initNoteFromDatabase() {
@@ -147,21 +153,27 @@ public class EditNoteActivity extends AppCompatActivity {
             return;
         }
 
+        int position = selectedPosition;
+
         if (noteId == -1) {
             try {
-                db.insertNote(title, content, selectedColor);
+                db.insertNote(title, content, selectedColor, position);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
             //Toast.makeText(this, getString(R.string.note_added), Toast.LENGTH_SHORT).show();
         } else {
             try {
-                db.updateNote(noteId, title, content, selectedColor);
+                db.updateNote(noteId, title, content, selectedColor, position);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
             //Toast.makeText(this, getString(R.string.note_updated), Toast.LENGTH_SHORT).show();
         }
+
+        // Et après sauvegarde locale, synchronise vers Firestore
+        Note note = new Note(noteId == -1 ? /* récupère id auto */0 : noteId, title, content, selectedColor, position);
+        syncNoteToFirestore(note);
     }
 
     private void shareNote() {
@@ -178,4 +190,24 @@ public class EditNoteActivity extends AppCompatActivity {
             Toast.makeText(this, getString(R.string.note_empty), Toast.LENGTH_SHORT).show();
         }
     }
+
+    private void syncNoteToFirestore(Note note) {
+        Map<String, Object> noteMap = new HashMap<>();
+        noteMap.put("title", note.getTitle());
+        noteMap.put("content", note.getContent());
+        noteMap.put("color", note.getColor());
+        noteMap.put("position", note.getPosition());
+        noteMap.put("timestamp", FieldValue.serverTimestamp());
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Log.d("FirebaseTest", "Firestore instance created: " + (db != null));
+        db.collection("notes")
+                .document(String.valueOf(note.getId()))
+                .set(noteMap)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Note synced successfully"))
+                .addOnFailureListener(e -> Log.e(TAG, "Error syncing note", e));
+    }
+
+
+
 }

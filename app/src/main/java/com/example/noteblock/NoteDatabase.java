@@ -61,14 +61,14 @@ public class NoteDatabase extends SQLiteOpenHelper {
         db.insert(TABLE_NAME, null, cv);
     }*/
 
-    public void insertNote(String title, String content, int color) throws Exception {
+    public long insertNote(String title, String content, int color, int position) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
         cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
         cv.put(COLUMN_COLOR, color);
-        //cv.put(COLUMN_POSITION, position);
-        db.insert(TABLE_NAME, null, cv);
+        cv.put(COLUMN_POSITION, position);
+        return db.insert(TABLE_NAME, null, cv);
     }
 
     /*public void updateNote(int id, String title, String content) throws Exception {
@@ -80,12 +80,13 @@ public class NoteDatabase extends SQLiteOpenHelper {
         db.update(TABLE_NAME, cv, "id=?", new String[]{String.valueOf(id)});
     }*/
 
-    public void updateNote(int id, String title, String content, int color) throws Exception {
+    public void updateNote(long id, String title, String content, int color, int position) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
         cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
         cv.put(COLUMN_COLOR, color);
+        cv.put(COLUMN_POSITION, position);
         db.update(TABLE_NAME, cv, "id=?", new String[]{String.valueOf(id)});
     }
 
@@ -93,14 +94,14 @@ public class NoteDatabase extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
 
         for (int i = 0; i < notesList.size(); i++) {
-            int id = notesList.get(i).getId();
+            long id = notesList.get(i).getId();
             ContentValues cv = new ContentValues();
             cv.put(COLUMN_POSITION, i);
             db.update(TABLE_NAME, cv, "id = ?", new String[]{String.valueOf(id)});
         }
     }
 
-    public int deleteNoteById(int id) {
+    public int deleteNoteById(long id) {
         SQLiteDatabase db = getWritableDatabase();
         return db.delete(TABLE_NAME, "id = ?", new String[]{String.valueOf(id)});
     }
@@ -115,11 +116,12 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 String encryptedTitle = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE));
                 String encryptedContent = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
                 int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
+                int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
                 try {
                     String title = HashUtils.decrypt(encryptedTitle, aesKey);
                     String content = HashUtils.decrypt(encryptedContent, aesKey);
 
-                    notes.add(new Note(id, title, content, color));
+                    notes.add(new Note(id, title, content, color, position));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -130,7 +132,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
         return notes;
     }
 
-    public Note getNoteById(int id) throws Exception {
+    public Note getNoteById(long id) throws Exception {
         SQLiteDatabase db = this.getReadableDatabase();
         Note note = null;
 
@@ -141,9 +143,9 @@ public class NoteDatabase extends SQLiteOpenHelper {
             int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
             String title = HashUtils.decrypt(encryptedTitle, aesKey);
             String content = HashUtils.decrypt(encryptedContent, aesKey);
+            int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
 
-
-            note = new Note(id, title, content, color);
+            note = new Note(id, title, content, color, position);
             cursor.close();
         }
 
@@ -153,7 +155,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public List<Note> getAllNotesRaw() {
         List<Note> notes = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, title, content, color FROM notes ORDER BY position ASC", null);
+        Cursor cursor = db.rawQuery("SELECT id, title, content, color, position FROM notes ORDER BY position ASC", null);
 
         if (cursor.moveToFirst()) {
             do {
@@ -161,7 +163,8 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 String encryptedTitle = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE));
                 String encryptedContent = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
                 int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
-                Note note = new Note(id, encryptedTitle, encryptedContent, color);
+                int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
+                Note note = new Note(id, encryptedTitle, encryptedContent, color, position);
                 notes.add(note);
             } while (cursor.moveToNext());
         }
@@ -172,7 +175,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
 
 
 
-    public void updateNoteEncrypted(int noteId, String encryptedTitle, String encryptedContent) {
+    public void updateNoteEncrypted(long noteId, String encryptedTitle, String encryptedContent) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("title", encryptedTitle);
@@ -210,6 +213,35 @@ public class NoteDatabase extends SQLiteOpenHelper {
         }
     }
 
+    public void insertOrUpdateNote(Note note) throws Exception {
+        if (noteExists(note.getId())) {
+            updateNote(note.getId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
+        } else {
+            insertNoteWithId(note.getId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
+        }
+    }
+
+    private boolean noteExists(long id) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = db.query(TABLE_NAME, new String[] {COLUMN_ID},
+                COLUMN_ID + "=?", new String[] {String.valueOf(id)},
+                null, null, null);
+        boolean exists = (cursor.getCount() > 0);
+        cursor.close();
+        return exists;
+    }
+
+    // Méthode insertNoteWithId à créer car ta méthode actuelle insertNote ne prend pas d'ID (auto-increment)
+    public void insertNoteWithId(long id, String title, String content, int color, int position) throws Exception {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put(COLUMN_ID, id);
+        cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
+        cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
+        cv.put(COLUMN_COLOR, color);
+        cv.put(COLUMN_POSITION, position);
+        db.insert(TABLE_NAME, null, cv);
+    }
 
 
 
