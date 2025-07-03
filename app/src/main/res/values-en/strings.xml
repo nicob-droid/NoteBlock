@@ -33,4 +33,9 @@
     <string name="new_note">➕ New note</string>
     <string name="modify_pin_error">Modify PIN error</string>
     <string name="modify_color">Change color</string>
+    <string name="shared_user_id">Shared User Firebase ID</string>
+    <string name="parameters">Parameters</string>
+    <string name="shared_user_id_saved">Shared User ID saved</string>
+    <string name="share_with_user">Share with user</string>
+    <string name="firebase_login">Login</string>
 </resources>

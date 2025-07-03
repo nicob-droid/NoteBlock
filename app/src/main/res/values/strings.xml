@@ -15,6 +15,7 @@
     <string name="enter_new_pin">Entrez le nouveau PIN</string>
     <string name="confirm_new_pin">Confirmez le nouveau PIN</string>
     <string name="change_pin">Changer le PIN</string>
+    <string name="parameters">Paramètres</string>
     <string name="pins_do_not_match">Les PIN ne correspondent pas</string>
     <string name="no_pin_set">Aucun PIN défini</string>
     <string name="incorrect_old_pin">Ancien PIN incorrect</string>
@@ -33,4 +34,8 @@
     <string name="new_note">➕ Nouvelle note</string>
     <string name="modify_pin_error">Erreur lors du changement de PIN</string>
     <string name="modify_color">Modifier la couleur</string>
+    <string name="shared_user_id">ID Firebase de l\'utilisateur partagé</string>
+    <string name="shared_user_id_saved">UID sauvegardé</string>
+    <string name="share_with_user">Partager mes notes</string>
+    <string name="firebase_login">Login</string>
 </resources>

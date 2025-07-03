@@ -32,6 +32,7 @@
         <activity android:name=".EditNoteActivity" />
         <activity android:name=".NotesActivity" />
         <activity android:name=".ChangePinActivity" />
-
+        <activity android:name=".SettingsActivity" />
+        <activity android:name=".LoginActivity" />
     </application>
 </manifest>

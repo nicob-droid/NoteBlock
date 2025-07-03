@@ -32,6 +32,9 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
@@ -135,7 +138,16 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         loadNotesFromLocalDatabase();
 
         // Synchronise depuis Firestore pour récupérer les notes partagées/mises à jour par d'autres
-        fetchNotesFromFirestoreIfLoggedIn();
+        //fetchNotesFromFirestoreIfLoggedIn();
+
+        // Synchronise depuis Firestore pour récupérer toutes les notes (locales + partagées)
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser != null) {
+            fetchAllRelevantNotes(firebaseUser.getUid());
+        } else {
+            Toast.makeText(this, "Vous devez être connecté pour synchroniser les notes", Toast.LENGTH_SHORT).show();
+            // Tu peux rester en local ici
+        }
     }
 
     private void loadNotesFromLocalDatabase() {
@@ -173,6 +185,14 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         if (id == R.id.action_change_pin) {
             // Ouvre l'activité pour changer le PIN
             Intent intent = new Intent(this, ChangePinActivity.class);
+            startActivity(intent);
+            return true;
+        } else if (item.getItemId() == R.id.action_share_with_user) {
+            Intent intent = new Intent(this, SettingsActivity.class);
+            startActivity(intent);
+            return true;
+        } else if (item.getItemId() == R.id.action_login) {
+            Intent intent = new Intent(this, LoginActivity.class);
             startActivity(intent);
             return true;
         }
@@ -254,16 +274,34 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
 
     private void fetchNotesFromFirestoreIfLoggedIn() {
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (firebaseUser != null) {
-            fetchNotesFromFirestore(firebaseUser.getUid());
-        } else {
-            // Pas connecté, afficher local ou autre
+        if (firebaseUser == null) {
+            return;
         }
+
+        String currentUserId = firebaseUser.getUid();
+        fetchNotesFromFirestore(currentUserId);
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("shared_users")
+                .document(currentUserId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String sharedUserId = documentSnapshot.getString("sharedUserId");
+                        if (sharedUserId != null && !sharedUserId.isEmpty() && !sharedUserId.equals(currentUserId)) {
+                            fetchNotesFromFirestore(sharedUserId);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "Erreur récupération partage", e);
+                });
     }
+
 
     private void fetchNotesFromFirestore(String userId) {
         FirebaseFirestore firebase = FirebaseFirestore.getInstance();
-        Log.d("FirebaseTest", "Firestore instance created: " + (db != null));
+
         firebase.collection("users")
                 .document(userId)
                 .collection("notes")
@@ -284,7 +322,19 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
                                     String content = HashUtils.decrypt(encryptedContent, aesKey);
 
                                     Note note = new Note(id, title, content, color, position);
-                                    db.insertOrUpdateNote(note);
+
+                                    // Chercher si la note existe déjà en local
+                                    Note localNote = db.getNoteById(id);
+                                    if (localNote == null) {
+                                        // Pas trouvée, insertion
+                                        db.insertOrUpdateNote(note);
+                                    } else {
+                                        // Trouvée, comparer et mettre à jour si différent
+                                        if (!localNote.equals(note)) {
+                                            db.insertOrUpdateNote(note);
+                                        }
+                                    }
+
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
@@ -295,4 +345,45 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
                     }
                 });
     }
+
+
+    private void fetchAllRelevantNotes(String userId) {
+        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (firebaseUser == null) {
+            // Pas connecté, on peut juste charger local
+            loadNotesFromLocalDatabase();
+            return;
+        }
+
+        //String currentUserId = firebaseUser.getUid();
+
+        // 1. Charger les notes locales (optionnel)
+        loadNotesFromLocalDatabase();
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // 2. Récupérer l'UID du sharedUser (s'il y en a) depuis Firestore
+        db.collection("shared_users")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String sharedUserId = documentSnapshot.getString("sharedUserId");
+                        // On récupère les notes des 2 utilisateurs (self + shared)
+                        fetchNotesFromFirestore(userId);
+                        if (sharedUserId != null && !sharedUserId.isEmpty() && !sharedUserId.equals(userId)) {
+                            fetchNotesFromFirestore(sharedUserId);
+                        }
+                    } else {
+                        // Pas de partage configuré, on charge juste les notes de l'utilisateur connecté
+                        fetchNotesFromFirestore(userId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // Erreur Firestore, on charge au moins les notes de l'utilisateur connecté
+                    fetchNotesFromFirestore(userId);
+                });
+    }
+
+
 }

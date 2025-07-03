@@ -29,4 +29,28 @@ public class Note {
     }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+
+        Note other = (Note) obj;
+
+        return id == other.id
+                && color == other.color
+                && position == other.position
+                && (title != null ? title.equals(other.title) : other.title == null)
+                && (content != null ? content.equals(other.content) : other.content == null);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (int) (id ^ (id >>> 32));
+        result = 31 * result + (title != null ? title.hashCode() : 0);
+        result = 31 * result + (content != null ? content.hashCode() : 0);
+        result = 31 * result + color;
+        result = 31 * result + position;
+        return result;
+    }
 }
