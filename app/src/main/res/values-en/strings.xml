@@ -41,11 +41,14 @@
     <string name="email_address">Email address</string>
     <string name="password">Password</string>
     <string name="log_in">Log in</string>
+    <string name="log_out">Log out</string>
     <string name="register">Register</string>
     <string name="delete_share">Delete share</string>
     <string name="email_required">Email address required</string>
     <string name="password_required">Password required</string>
     <string name="connect_success">Connection successful</string>
+    <string name="disconnect_success">Disconnection successful</string>
+    <string name="disconnect_error">Disconnection error</string>
     <string name="connect_error">Connection error : </string>
     <string name="password_required_minimum">Password required (6 characters minimum)</string>
     <string name="register_success">Registration successful</string>

@@ -3,6 +3,8 @@ package com.example.noteblock;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -17,7 +19,7 @@ import com.google.firebase.auth.FirebaseUser;
 public class LoginActivity extends AppCompatActivity {
 
     private EditText emailEditText, passwordEditText;
-    private Button btnSignIn, btnSignUp;
+    private Button btnSignIn, btnSignUp, btnLogout;
     private FirebaseAuth auth;
 
     @Override
@@ -31,14 +33,20 @@ public class LoginActivity extends AppCompatActivity {
         passwordEditText = findViewById(R.id.passwordEditText);
         btnSignIn = findViewById(R.id.btnSignIn);
         btnSignUp = findViewById(R.id.btnSignUp);
+        btnLogout = findViewById(R.id.btnLogout);
 
         btnSignIn.setOnClickListener(v -> signIn());
         btnSignUp.setOnClickListener(v -> signUp());
+        btnLogout.setOnClickListener(v -> logOut());
 
-        // Si déjà connecté, passe directement à l'écran principal
+        // Si déjà connecté
         FirebaseUser currentUser = auth.getCurrentUser();
         if (currentUser != null) {
-            goToMainScreen();
+            //goToMainScreen();
+            // L'utilisateur est connecté
+            btnLogout.setVisibility(View.VISIBLE);
+            btnSignIn.setVisibility(View.GONE);
+            btnSignUp.setVisibility(View.GONE);
         }
     }
 
@@ -92,10 +100,29 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
+    private void logOut() {
+        auth.signOut();
+        if (auth.getCurrentUser() == null) {
+            // Déconnexion réussie
+            Toast.makeText(LoginActivity.this, getString(R.string.disconnect_success), Toast.LENGTH_SHORT).show();
+            // Recharge l'activité
+            Intent intent = new Intent(this, LoginActivity.class); // remplace si besoin
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+            finish();
+        } else {
+            // Problème lors de la déconnexion
+            Toast.makeText(LoginActivity.this, getString(R.string.disconnect_error), Toast.LENGTH_LONG).show();
+        }
+
+    }
+
     private void goToMainScreen() {
         // Ici tu lances ton activité principale (NotesActivity par exemple)
         Intent intent = new Intent(this, NotesActivity.class);
         startActivity(intent);
         finish();
     }
+
+
 }
