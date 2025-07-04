@@ -57,8 +57,14 @@
     <string name="enter_user_uid">Entrez un UID utilisateur</string>
     <string name="cant_share_with_yourself">Vous ne pouvez pas partager avec vous-même</string>
     <string name="message_logged_to_delete">Vous devez être connecté pour supprimer le partage</string>
+    <string name="message_connect_to_share">Vous devez être connecté pour synchroniser les notes</string>
     <string name="share_saved">Partage sauvegardé</string>
     <string name="share_save_error">Erreur sauvegarde partage : </string>
     <string name="share_deleted">Partage supprimé</string>
     <string name="share_delete_error">Erreur suppression partage : </string>
+    <string name="send">Envoyer</string>
+    <string name="current_id">Votre ID utilisateur actuel : </string>
+    <string name="my_current_id">Mon ID utilisateur : </string>
+    <string name="share_id_with">Partager votre ID via</string>
+    <string name="load_notes_error">Erreur lors du chargement des notes</string>
 </resources>

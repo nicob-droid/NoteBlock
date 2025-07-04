@@ -3,39 +3,53 @@ package com.example.noteblock;
 import static com.example.noteblock.MainActivity.KEY_PIN_HASH;
 import static com.example.noteblock.MainActivity.PREFS_NAME;
 
+import android.Manifest;
+import android.app.PendingIntent;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.noteblock.Utils.HashUtils;
+import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 
@@ -45,11 +59,14 @@ import java.util.List;
 
 public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnNoteClickListener {
     private static final String TAG = "NotesActivity";
+    private static final int REQUEST_CODE_POST_NOTIF = 1001;
+
     private RecyclerView recyclerView;
     private NotesAdapter adapter;
     private List<Note> notesList;
     private NoteDatabase db;
     private byte[] aesKey;
+    private ListenerRegistration noteListener;
 
 
     @Override
@@ -61,10 +78,8 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         recyclerView = findViewById(R.id.notes_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Exemple de données
+        // Données
         notesList = new ArrayList<>();
-        /*notesList.add(new Note("Note 1", "Contenu de la note 1"));
-        notesList.add(new Note("Note 2", "Contenu de la note 2"));*/
 
         // Récupérer le PIN
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -137,18 +152,82 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         // Recharge localement les notes depuis SQLite (optionnel)
         loadNotesFromLocalDatabase();
 
-        // Synchronise depuis Firestore pour récupérer les notes partagées/mises à jour par d'autres
-        //fetchNotesFromFirestoreIfLoggedIn();
+        // Pour Android 13+ : check et request permission POST_NOTIFICATIONS
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                        this,
+                        new String[]{ Manifest.permission.POST_NOTIFICATIONS },
+                        REQUEST_CODE_POST_NOTIF
+                );
+            }
+        }
 
         // Synchronise depuis Firestore pour récupérer toutes les notes (locales + partagées)
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
         if (firebaseUser != null) {
-            fetchAllRelevantNotes(firebaseUser.getUid());
+            String currentUserId = firebaseUser.getUid();
+
+            // 1) écoute pour tes propres notes
+            startListeningNotes(firebaseUser.getUid());
+
+            // 2) Récupère le sharedUserId depuis Firestore, puis écoute-le
+            FirebaseFirestore.getInstance()
+                    .collection("shared_users")
+                    .document(currentUserId)
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (doc.exists()) {
+                            String sharedUserId = doc.getString("sharedUserId");
+                            if (sharedUserId != null
+                                    && !sharedUserId.isEmpty()
+                                    && !sharedUserId.equals(currentUserId)) {
+                                startListeningNotes(sharedUserId);
+                            }
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.w(TAG, "Impossible de récupérer sharedUserId", e);
+                    });
         } else {
-            Toast.makeText(this, "Vous devez être connecté pour synchroniser les notes", Toast.LENGTH_SHORT).show();
             // Tu peux rester en local ici
         }
     }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (noteListener != null) {
+            noteListener.remove();
+            noteListener = null;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (db != null) {
+            db.close();   // ← ferme la SQLiteDatabase et son pool
+            db = null;
+        }
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CODE_POST_NOTIF) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission accordée : on peut poster des notifs
+            } else {
+                // Permission refusée : tu peux désactiver la notif ou prévenir l'utilisateur
+                Toast.makeText(this, "Permission notifications non accordée", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
 
     private void loadNotesFromLocalDatabase() {
         try {
@@ -169,7 +248,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
 
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "Erreur lors du chargement des notes", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.load_notes_error), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -221,33 +300,40 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
 
-        view.findViewById(R.id.color_white).setOnClickListener(v -> {
-            updateNoteColor(note, Color.parseColor("#FFFFFF"));
-            dialog.dismiss();
-        });
-        view.findViewById(R.id.color_red).setOnClickListener(v -> {
-            updateNoteColor(note, Color.parseColor("#F44336"));
-            dialog.dismiss();
-        });
-        view.findViewById(R.id.color_green).setOnClickListener(v -> {
-            updateNoteColor(note, Color.parseColor("#4CAF50"));
-            dialog.dismiss();
-        });
-        view.findViewById(R.id.color_blue).setOnClickListener(v -> {
-            updateNoteColor(note, Color.parseColor("#2196F3"));
-            dialog.dismiss();
-        });
-        view.findViewById(R.id.color_yellow).setOnClickListener(v -> {
-            updateNoteColor(note, Color.parseColor("#FFEB3B"));
-            dialog.dismiss();
-        });
-        view.findViewById(R.id.color_purple).setOnClickListener(v -> {
-            updateNoteColor(note, Color.parseColor("#9C27B0"));
-            dialog.dismiss();
-        });
+        FlexboxLayout layout = view.findViewById(R.id.color_picker_layout);
+
+        final View[] selectedFrame = {null};
+
+        for (int i = 0; i < layout.getChildCount(); i++) {
+            View frame = layout.getChildAt(i); // FrameLayout
+
+            if (frame instanceof ViewGroup && ((ViewGroup) frame).getChildCount() > 0) {
+                View colorView = ((ViewGroup) frame).getChildAt(0);
+
+                // Lire la couleur pastel depuis backgroundTint
+                ColorStateList tintList = colorView.getBackgroundTintList();
+                int color = tintList != null ? tintList.getDefaultColor() : Color.TRANSPARENT;
+
+                frame.setOnClickListener(v -> {
+                    // Désélectionner l'ancienne frame si besoin
+                    if (selectedFrame[0] != null) {
+                        selectedFrame[0].setSelected(false);
+                    }
+
+                    // Sélectionner la nouvelle
+                    v.setSelected(true);
+                    selectedFrame[0] = v;
+
+                    // Appliquer la couleur à la note
+                    updateNoteColor(note, color);
+                    dialog.dismiss();
+                });
+            }
+        }
 
         dialog.show();
     }
+
 
     private void updateNoteColor(Note note, int newColor) {
         note.setColor(newColor);
@@ -271,33 +357,6 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
             runOnUiThread(this::loadNotes);
         }).start();
     }
-
-    private void fetchNotesFromFirestoreIfLoggedIn() {
-        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (firebaseUser == null) {
-            return;
-        }
-
-        String currentUserId = firebaseUser.getUid();
-        fetchNotesFromFirestore(currentUserId);
-
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        db.collection("shared_users")
-                .document(currentUserId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String sharedUserId = documentSnapshot.getString("sharedUserId");
-                        if (sharedUserId != null && !sharedUserId.isEmpty() && !sharedUserId.equals(currentUserId)) {
-                            fetchNotesFromFirestore(sharedUserId);
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.w(TAG, "Erreur récupération partage", e);
-                });
-    }
-
 
     private void fetchNotesFromFirestore(String userId) {
         FirebaseFirestore firebase = FirebaseFirestore.getInstance();
@@ -384,6 +443,104 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
                     fetchNotesFromFirestore(userId);
                 });
     }
+
+    private void startListeningNotes(String userId) {
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        noteListener = firestore
+                .collection("users")
+                .document(userId)
+                .collection("notes")
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null) {
+                        Log.w(TAG, "Listen failed.", error);
+                        return;
+                    }
+                    if (snapshots != null) {
+                        for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                            if (dc.getType() == DocumentChange.Type.ADDED) {
+                                onRemoteNoteAdded(dc.getDocument());
+                            }
+                            // tu peux aussi gérer MODIFIED / REMOVED si besoin
+                        }
+                    }
+                });
+    }
+
+    private void onRemoteNoteAdded(DocumentSnapshot doc) {
+        // 1) Sauvegarde la note en local
+        saveRemoteNoteLocally(doc);
+
+        // 2) Prépare et affiche la notification
+        String encTitle = doc.getString("title");
+        String title;
+        try {
+            title = HashUtils.decrypt(encTitle, aesKey);
+        } catch (Exception e) {
+            title = "New note";
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApplication.CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_note)
+                .setContentTitle("Nouvelle note partagée")
+                .setContentText(title)
+                .setAutoCancel(true);
+
+        Intent intent = new Intent(this, NotesActivity.class);
+        PendingIntent pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+        builder.setContentIntent(pi);
+
+        Long idLong = doc.getLong("id");
+        int notificationId = (idLong != null) ? idLong.intValue() : 0;
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                        == PackageManager.PERMISSION_GRANTED) {
+            NotificationManagerCompat.from(this)
+                    .notify(notificationId, builder.build());
+        } else {
+            Log.w(TAG, "Notification non envoyée : permission manquante");
+        }
+    }
+
+
+    /**
+     * Déchiffre le DocumentSnapshot reçu de Firestore et l'insère ou met à jour
+     * la note dans ta base locale, puis rafraîchit l'affichage.
+     */
+    private void saveRemoteNoteLocally(DocumentSnapshot doc) {
+        Long idObj = doc.getLong("id");
+        if (idObj == null) {
+            Log.e(TAG, "Document missing 'id' field");
+            return; // ou gérer autrement
+        }
+        long id = idObj;
+
+        String encTitle   = doc.getString("title");
+        String encContent = doc.getString("content");
+
+        Long colorObj = doc.getLong("color");
+        if (colorObj == null) colorObj = 0L; // valeur par défaut si absent
+        int color = colorObj.intValue();
+
+        Long positionObj = doc.getLong("position");
+        if (positionObj == null) positionObj = 0L; // valeur par défaut si absent
+        int position = positionObj.intValue();
+
+        try {
+            String title   = HashUtils.decrypt(encTitle, aesKey);
+            String content = HashUtils.decrypt(encContent, aesKey);
+
+            Note note = new Note(id, title, content, color, position);
+            db.insertOrUpdateNote(note);
+
+            // Recharge la liste dans l'UI
+            runOnUiThread(this::loadNotesFromLocalDatabase);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur décrypt/save local", e);
+        }
+    }
+
 
 
 }

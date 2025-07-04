@@ -54,6 +54,7 @@
     <string name="register_success">Registration successful</string>
     <string name="register_error">Registration error : </string>
     <string name="message_logged_to_share">You must be logged in to share</string>
+    <string name="message_connect_to_share">Login is required to sync notes</string>
     <string name="enter_user_uid">Enter a user UID</string>
     <string name="cant_share_with_yourself">You cannot share with yourself</string>
     <string name="message_logged_to_delete">You must be logged in to remove sharing</string>
@@ -61,4 +62,10 @@
     <string name="share_save_error">Share save error : </string>
     <string name="share_deleted">Share deleted</string>
     <string name="share_delete_error">Share delete error : </string>
+    <string name="send">Send</string>
+    <string name="current_id">Your current user ID is : </string>
+    <string name="my_current_id">My current user ID : </string>
+    <string name="share_id_with">Share your ID via</string>
+    <string name="load_notes_error">Error while loading notes</string>
+
 </resources>

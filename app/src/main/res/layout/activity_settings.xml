@@ -1,6 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:padding="24dp"
     android:orientation="vertical">
 
@@ -16,19 +18,58 @@
         android:layout_height="wrap_content"
         android:hint="Ex: 34FGHkld32x..." />
 
+    <!-- Label pour l'ID actuel -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/current_id"
+        android:textSize="14sp"
+        android:textColor="@android:color/darker_gray"
+        android:layout_marginTop="12dp"/>
+
+    <!-- Ligne contenant l'UID et le bouton Partager -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp">
+
+        <EditText
+            android:id="@+id/current_user_id"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:focusable="false"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            android:background="@android:color/transparent" />
+
+        <Button
+            android:id="@+id/share_id_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/send"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
     <Button
         android:id="@+id/save_btn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/save"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="64dp"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:id="@+id/delete_btn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/delete_share"
         android:layout_marginTop="16dp"
-        android:backgroundTint="@android:color/holo_red_light"
-        android:textColor="@android:color/white"/>
+        app:strokeColor="?attr/colorError"
+        app:strokeWidth="1dp"
+        android:textColor="?attr/colorError" />
+
 </LinearLayout>

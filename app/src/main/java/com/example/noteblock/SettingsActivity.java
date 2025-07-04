@@ -1,5 +1,6 @@
 package com.example.noteblock;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -9,6 +10,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -18,8 +20,9 @@ import java.util.Map;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    private EditText uidInput;
-    private Button saveBtn, deleteBtn;
+    private EditText uidInput, currentUserIdEditText;
+    private Button saveBtn, shareIdBtn;
+    private MaterialButton deleteBtn;
     private SharedPreferences prefs;
 
     @Override
@@ -30,14 +33,24 @@ public class SettingsActivity extends AppCompatActivity {
         uidInput = findViewById(R.id.uid_input);
         saveBtn = findViewById(R.id.save_btn);
         deleteBtn = findViewById(R.id.delete_btn);
+        shareIdBtn = findViewById(R.id.share_id_btn);
+        currentUserIdEditText = findViewById(R.id.current_user_id);
 
         prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String sharedUid = prefs.getString("shared_user_id", "");
 
         uidInput.setText(sharedUid);
 
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            currentUserIdEditText.setText(getString(R.string.message_logged_to_share));
+            shareIdBtn.setEnabled(false);
+        } else {
+            String currentUserId = currentUser.getUid();
+            currentUserIdEditText.setText(currentUserId);
+        }
+
         saveBtn.setOnClickListener(v -> {
-            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser == null) {
                 Toast.makeText(this, getString(R.string.message_logged_to_share), Toast.LENGTH_SHORT).show();
                 return;
@@ -58,13 +71,21 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         deleteBtn.setOnClickListener(v -> {
-            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser == null) {
                 Toast.makeText(this, getString(R.string.message_logged_to_delete), Toast.LENGTH_SHORT).show();
                 return;
             }
 
             deleteSharedUserId(currentUser.getUid());
+        });
+
+        shareIdBtn.setOnClickListener(v -> {
+            if (currentUser != null) {
+                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                shareIntent.setType("text/plain");
+                shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.my_current_id) + "\n" + currentUser.getUid());
+                startActivity(Intent.createChooser(shareIntent, getString(R.string.share_id_with)));
+            }
         });
     }
 

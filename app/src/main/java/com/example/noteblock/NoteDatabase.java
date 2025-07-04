@@ -52,15 +52,6 @@ public class NoteDatabase extends SQLiteOpenHelper {
         }
     }
 
-  /*  public void insertNote(String title, String content) throws Exception {
-        SQLiteDatabase db = getWritableDatabase();
-        ContentValues cv = new ContentValues();
-        cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
-        cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
-        cv.put(COLUMN_COLOR, Color.parseColor("#FFFFFF"));
-        db.insert(TABLE_NAME, null, cv);
-    }*/
-
     public long insertNote(String title, String content, int color, int position) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
@@ -70,15 +61,6 @@ public class NoteDatabase extends SQLiteOpenHelper {
         cv.put(COLUMN_POSITION, position);
         return db.insert(TABLE_NAME, null, cv);
     }
-
-    /*public void updateNote(int id, String title, String content) throws Exception {
-        SQLiteDatabase db = getWritableDatabase();
-        ContentValues cv = new ContentValues();
-        cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
-        cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
-        //cv.put(COLUMN_COLOR, Color.parseColor("#FFFFFF"));
-        db.update(TABLE_NAME, cv, "id=?", new String[]{String.valueOf(id)});
-    }*/
 
     public void updateNote(long id, String title, String content, int color, int position) throws Exception {
         SQLiteDatabase db = getWritableDatabase();

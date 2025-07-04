@@ -1,0 +1,21 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- État sélectionné -->
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent"/>
+            <stroke
+                android:width="4dp"
+                android:color="#0088FF"/> <!-- ou noir -->
+        </shape>
+    </item>
+
+    <!-- État normal -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent"/>
+            <stroke
+                android:width="4dp"
+                android:color="#111111"/> <!-- ou noir -->
+        </shape>
+    </item>
+</selector>

@@ -23,12 +23,14 @@ import androidx.recyclerview.widget.DiffUtil;
 
 import com.example.noteblock.Utils.HashUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class EditNoteActivity extends AppCompatActivity {
     private static final String TAG = "EditNoteActivity";
@@ -200,13 +202,17 @@ public class EditNoteActivity extends AppCompatActivity {
         noteMap.put("timestamp", FieldValue.serverTimestamp());
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
-        Log.d("FirebaseTest", "Firestore instance created: " + (db != null));
-        db.collection("notes")
+        String userId = Objects.requireNonNull(FirebaseAuth.getInstance().getCurrentUser()).getUid();  // Récupère l'utilisateur connecté
+
+        db.collection("users")
+                .document(userId)
+                .collection("notes")
                 .document(String.valueOf(note.getId()))
                 .set(noteMap)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Note synced successfully"))
                 .addOnFailureListener(e -> Log.e(TAG, "Error syncing note", e));
     }
+
 
 
 

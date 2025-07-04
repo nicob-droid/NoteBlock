@@ -1,64 +1,215 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.flexbox.FlexboxLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:flexbox="http://schemas.android.com/apk/res-auto"
     android:id="@+id/color_picker_layout"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
     android:padding="16dp"
-    android:gravity="center">
+    flexbox:flexWrap="wrap"
+    flexbox:justifyContent="center">
 
-    <View
-        android:id="@+id/color_white"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#EEEEEE"
+    <!-- Rouge -->
+    <FrameLayout
+        android:id="@+id/color_red_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
         android:clickable="true"
-        android:focusable="true"/>
+        android:focusable="true">
+        <View
+            android:id="@+id/color_red"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#F6C1C1"
+            android:background="@android:color/white" />
+    </FrameLayout>
 
-    <View
-        android:id="@+id/color_red"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#F44336"
+    <!-- Orange -->
+    <FrameLayout
+        android:id="@+id/color_orange_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
         android:clickable="true"
-        android:focusable="true"/>
+        android:focusable="true">
+        <View
+            android:id="@+id/color_orange"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#FFD8B1"
+            android:background="@android:color/white" />
+    </FrameLayout>
 
-    <View
-        android:id="@+id/color_green"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#4CAF50"
+    <!-- Jaune -->
+    <FrameLayout
+        android:id="@+id/color_yellow_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
         android:clickable="true"
-        android:focusable="true"/>
+        android:focusable="true">
+        <View
+            android:id="@+id/color_yellow"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#FCF4B2"
+            android:background="@android:color/white" />
+    </FrameLayout>
 
-    <View
-        android:id="@+id/color_blue"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#2196F3"
+    <!-- Vert citron -->
+    <FrameLayout
+        android:id="@+id/color_lime_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
         android:clickable="true"
-        android:focusable="true"/>
+        android:focusable="true">
+        <View
+            android:id="@+id/color_lime"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#E2F7C6"
+            android:background="@android:color/white" />
+    </FrameLayout>
 
-    <View
-        android:id="@+id/color_yellow"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#FFEB3B"
+    <!-- Vert menthe -->
+    <FrameLayout
+        android:id="@+id/color_mint_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
         android:clickable="true"
-        android:focusable="true"/>
+        android:focusable="true">
+        <View
+            android:id="@+id/color_mint"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#C6F1E7"
+            android:background="@android:color/white" />
+    </FrameLayout>
 
-    <View
-        android:id="@+id/color_purple"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:background="#9C27B0"
+    <!-- Turquoise -->
+    <FrameLayout
+        android:id="@+id/color_turquoise_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
         android:clickable="true"
-        android:focusable="true"/>
+        android:focusable="true">
+        <View
+            android:id="@+id/color_turquoise"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#C1F3F6"
+            android:background="@android:color/white" />
+    </FrameLayout>
 
-</LinearLayout>
+    <!-- Bleu ciel -->
+    <FrameLayout
+        android:id="@+id/color_skyblue_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
+        android:clickable="true"
+        android:focusable="true">
+        <View
+            android:id="@+id/color_skyblue"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#C9DFF9"
+            android:background="@android:color/white" />
+    </FrameLayout>
+
+    <!-- Bleu -->
+    <FrameLayout
+        android:id="@+id/color_blue_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
+        android:clickable="true"
+        android:focusable="true">
+        <View
+            android:id="@+id/color_blue"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#BCD3F0"
+            android:background="@android:color/white" />
+    </FrameLayout>
+
+    <!-- Lavande -->
+    <FrameLayout
+        android:id="@+id/color_lavender_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
+        android:clickable="true"
+        android:focusable="true">
+        <View
+            android:id="@+id/color_lavender"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#E1D4F5"
+            android:background="@android:color/white" />
+    </FrameLayout>
+
+    <!-- Violet -->
+    <FrameLayout
+        android:id="@+id/color_violet_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
+        android:clickable="true"
+        android:focusable="true">
+        <View
+            android:id="@+id/color_violet"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#E9CCF0"
+            android:background="@android:color/white" />
+    </FrameLayout>
+
+    <!-- Rose -->
+    <FrameLayout
+        android:id="@+id/color_pink_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
+        android:clickable="true"
+        android:focusable="true">
+        <View
+            android:id="@+id/color_pink"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#F6C1E5"
+            android:background="@android:color/white" />
+    </FrameLayout>
+
+    <!-- Blanc -->
+    <FrameLayout
+        android:id="@+id/color_white_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:background="@drawable/color_selector_background"
+        android:clickable="true"
+        android:focusable="true">
+        <View
+            android:id="@+id/color_white"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:backgroundTint="#F0F0F0"
+            android:background="@android:color/white" />
+    </FrameLayout>
+
+</com.google.android.flexbox.FlexboxLayout>
