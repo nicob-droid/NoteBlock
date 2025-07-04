@@ -38,4 +38,24 @@
     <string name="shared_user_id_saved">Shared User ID saved</string>
     <string name="share_with_user">Share with user</string>
     <string name="firebase_login">Login</string>
+    <string name="email_address">Email address</string>
+    <string name="password">Password</string>
+    <string name="log_in">Log in</string>
+    <string name="register">Register</string>
+    <string name="delete_share">Delete share</string>
+    <string name="email_required">Email address required</string>
+    <string name="password_required">Password required</string>
+    <string name="connect_success">Connection successful</string>
+    <string name="connect_error">Connection error : </string>
+    <string name="password_required_minimum">Password required (6 characters minimum)</string>
+    <string name="register_success">Registration successful</string>
+    <string name="register_error">Registration error : </string>
+    <string name="message_logged_to_share">You must be logged in to share</string>
+    <string name="enter_user_uid">Enter a user UID</string>
+    <string name="cant_share_with_yourself">You cannot share with yourself</string>
+    <string name="message_logged_to_delete">You must be logged in to remove sharing</string>
+    <string name="share_saved">Share saved</string>
+    <string name="share_save_error">Share save error : </string>
+    <string name="share_deleted">Share deleted</string>
+    <string name="share_delete_error">Share delete error : </string>
 </resources>

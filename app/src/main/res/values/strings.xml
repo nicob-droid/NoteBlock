@@ -38,4 +38,24 @@
     <string name="shared_user_id_saved">UID sauvegardé</string>
     <string name="share_with_user">Partager mes notes</string>
     <string name="firebase_login">Login</string>
+    <string name="email_address">Email</string>
+    <string name="password">Mot de passe</string>
+    <string name="log_in">Se connecter</string>
+    <string name="register">S\'inscrire</string>
+    <string name="delete_share">Supprimer le partage</string>
+    <string name="email_required">Email requis</string>
+    <string name="password_required">Mot de passe requis</string>
+    <string name="connect_success">Connexion réussie</string>
+    <string name="connect_error">Erreur connexion : </string>
+    <string name="password_required_minimum">Mot de passe requis (6 caractères minimum)</string>
+    <string name="register_success">Inscription réussie</string>
+    <string name="register_error">Erreur Inscription : </string>
+    <string name="message_logged_to_share">Vous devez être connecté pour partager</string>
+    <string name="enter_user_uid">Entrez un UID utilisateur</string>
+    <string name="cant_share_with_yourself">Vous ne pouvez pas partager avec vous-même</string>
+    <string name="message_logged_to_delete">Vous devez être connecté pour supprimer le partage</string>
+    <string name="share_saved">Partage sauvegardé</string>
+    <string name="share_save_error">Erreur sauvegarde partage : </string>
+    <string name="share_deleted">Partage supprimé</string>
+    <string name="share_delete_error">Erreur suppression partage : </string>
 </resources>

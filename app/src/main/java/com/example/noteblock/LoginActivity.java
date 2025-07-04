@@ -47,21 +47,21 @@ public class LoginActivity extends AppCompatActivity {
         String password = passwordEditText.getText().toString();
 
         if (TextUtils.isEmpty(email)) {
-            emailEditText.setError("Email requis");
+            emailEditText.setError(getString(R.string.email_required));
             return;
         }
         if (TextUtils.isEmpty(password)) {
-            passwordEditText.setError("Mot de passe requis");
+            passwordEditText.setError(getString(R.string.password_required));
             return;
         }
 
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        Toast.makeText(LoginActivity.this, "Connexion réussie", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(LoginActivity.this, getString(R.string.connect_success), Toast.LENGTH_SHORT).show();
                         goToMainScreen();
                     } else {
-                        Toast.makeText(LoginActivity.this, "Erreur connexion : " + task.getException().getMessage(),
+                        Toast.makeText(LoginActivity.this, getString(R.string.connect_error) + task.getException().getMessage(),
                                 Toast.LENGTH_LONG).show();
                     }
                 });
@@ -72,21 +72,21 @@ public class LoginActivity extends AppCompatActivity {
         String password = passwordEditText.getText().toString();
 
         if (TextUtils.isEmpty(email)) {
-            emailEditText.setError("Email requis");
+            emailEditText.setError(getString(R.string.email_required));
             return;
         }
         if (TextUtils.isEmpty(password) || password.length() < 6) {
-            passwordEditText.setError("Mot de passe requis (6 caractères minimum)");
+            passwordEditText.setError(getString(R.string.password_required_minimum));
             return;
         }
 
         auth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        Toast.makeText(LoginActivity.this, "Inscription réussie", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(LoginActivity.this, getString(R.string.register_success), Toast.LENGTH_SHORT).show();
                         goToMainScreen();
                     } else {
-                        Toast.makeText(LoginActivity.this, "Erreur inscription : " + task.getException().getMessage(),
+                        Toast.makeText(LoginActivity.this, getString(R.string.register_error) + task.getException().getMessage(),
                                 Toast.LENGTH_LONG).show();
                     }
                 });

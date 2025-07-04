@@ -8,7 +8,7 @@
 
     <EditText
         android:id="@+id/emailEditText"
-        android:hint="Email"
+        android:hint="@string/email_address"
         android:inputType="textEmailAddress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -17,7 +17,7 @@
 
     <EditText
         android:id="@+id/passwordEditText"
-        android:hint="Mot de passe"
+        android:hint="@string/password"
         android:inputType="textPassword"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -27,7 +27,7 @@
 
     <Button
         android:id="@+id/btnSignIn"
-        android:text="Se connecter"
+        android:text="@string/log_in"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
@@ -35,7 +35,7 @@
 
     <Button
         android:id="@+id/btnSignUp"
-        android:text="S'inscrire"
+        android:text="@string/register"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"

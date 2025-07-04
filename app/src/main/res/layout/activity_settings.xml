@@ -27,7 +27,7 @@
         android:id="@+id/delete_btn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Supprimer le partage"
+        android:text="@string/delete_share"
         android:layout_marginTop="16dp"
         android:backgroundTint="@android:color/holo_red_light"
         android:textColor="@android:color/white"/>

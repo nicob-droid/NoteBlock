@@ -39,16 +39,16 @@ public class SettingsActivity extends AppCompatActivity {
         saveBtn.setOnClickListener(v -> {
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser == null) {
-                Toast.makeText(this, "Vous devez être connecté pour partager", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.message_logged_to_share), Toast.LENGTH_SHORT).show();
                 return;
             }
             String sharedUserId = uidInput.getText().toString().trim();
             if (sharedUserId.isEmpty()) {
-                Toast.makeText(this, "Entrez un UID utilisateur", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.enter_user_uid), Toast.LENGTH_SHORT).show();
                 return;
             }
             if (sharedUserId.equals(currentUser.getUid())) {
-                Toast.makeText(this, "Vous ne pouvez pas partager avec vous-même", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.cant_share_with_yourself), Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -60,7 +60,7 @@ public class SettingsActivity extends AppCompatActivity {
         deleteBtn.setOnClickListener(v -> {
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
             if (currentUser == null) {
-                Toast.makeText(this, "Vous devez être connecté pour supprimer le partage", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.message_logged_to_delete), Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -79,11 +79,11 @@ public class SettingsActivity extends AppCompatActivity {
                 .document(ownerUserId)
                 .set(data)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "Partage sauvegardé", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
                     saveBtn.setEnabled(true);
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Erreur sauvegarde partage: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.share_save_error) + e.getMessage(), Toast.LENGTH_LONG).show();
                     saveBtn.setEnabled(true);
                 });
     }
@@ -95,11 +95,11 @@ public class SettingsActivity extends AppCompatActivity {
                 .document(ownerUserId)
                 .delete()
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "Partage supprimé", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.share_deleted), Toast.LENGTH_SHORT).show();
                     uidInput.setText(""); // Efface le champ UI
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Erreur suppression partage: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.share_delete_error) + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
