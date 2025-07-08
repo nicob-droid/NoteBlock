@@ -12,9 +12,4 @@
         android:title="@string/share_with_user"
         android:orderInCategory="100"
         app:showAsAction="never" />
-    <item
-        android:id="@+id/action_change_pin"
-        android:title="@string/change_pin"
-        android:orderInCategory="100"
-        app:showAsAction="never" />
 </menu>

@@ -25,12 +25,9 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public static final String COLUMN_COLOR = "color";
     public static final String COLUMN_POSITION = "position";
 
-    private byte[] aesKey;
 
-    public NoteDatabase(Context context, byte[] aesKey) {
+    public NoteDatabase(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
-        //this.aesKey = HashUtils.sha256(pin).substring(0, 32); // 256-bit key from PIN hash
-        this.aesKey = aesKey;
     }
 
     @Override
@@ -55,8 +52,8 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public long insertNote(String title, String content, int color, int position) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
-        cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
-        cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
+        cv.put(COLUMN_TITLE, title);
+        cv.put(COLUMN_CONTENT, content);
         cv.put(COLUMN_COLOR, color);
         cv.put(COLUMN_POSITION, position);
         return db.insert(TABLE_NAME, null, cv);
@@ -65,8 +62,8 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public void updateNote(long id, String title, String content, int color, int position) throws Exception {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
-        cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
-        cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
+        cv.put(COLUMN_TITLE, title);
+        cv.put(COLUMN_CONTENT, content);
         cv.put(COLUMN_COLOR, color);
         cv.put(COLUMN_POSITION, position);
         db.update(TABLE_NAME, cv, "id=?", new String[]{String.valueOf(id)});
@@ -95,14 +92,11 @@ public class NoteDatabase extends SQLiteOpenHelper {
         if (cursor != null) {
             while (cursor.moveToNext()) {
                 int id = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_ID));
-                String encryptedTitle = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE));
-                String encryptedContent = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
+                String title = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE));
+                String content = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
                 int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
                 int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
                 try {
-                    String title = HashUtils.decrypt(encryptedTitle, aesKey);
-                    String content = HashUtils.decrypt(encryptedContent, aesKey);
-
                     notes.add(new Note(id, title, content, color, position));
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -114,17 +108,15 @@ public class NoteDatabase extends SQLiteOpenHelper {
         return notes;
     }
 
-    public Note getNoteById(long id) throws Exception {
+    public Note getNoteById(long id) {
         SQLiteDatabase db = this.getReadableDatabase();
         Note note = null;
 
         Cursor cursor = db.query(TABLE_NAME, null, "id = ?", new String[]{String.valueOf(id)}, null, null, null);
         if (cursor != null && cursor.moveToFirst()) {
-            String encryptedTitle = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE));
-            String encryptedContent = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
+            String title = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_TITLE));
+            String content = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
             int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
-            String title = HashUtils.decrypt(encryptedTitle, aesKey);
-            String content = HashUtils.decrypt(encryptedContent, aesKey);
             int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
 
             note = new Note(id, title, content, color, position);
@@ -167,34 +159,6 @@ public class NoteDatabase extends SQLiteOpenHelper {
         db.close();
     }
 
-
-
-
-
-    public void reencryptAllNotes(byte[] oldAesKey, byte[] newAesKey) throws Exception {
-        // Récupérer toutes les notes chiffrées telles qu'elles sont en base
-        List<Note> notes = getAllNotesRaw();
-
-        for (Note note : notes) {
-            try {
-                // Déchiffrer titre et contenu avec l'ancienne clé
-                String decryptedTitle = HashUtils.decrypt(note.getTitle(), oldAesKey);
-                String decryptedContent = HashUtils.decrypt(note.getContent(), oldAesKey);
-
-                // Ré-encrypter avec la nouvelle clé
-                String reencryptedTitle = HashUtils.encrypt(decryptedTitle, newAesKey);
-                String reencryptedContent = HashUtils.encrypt(decryptedContent, newAesKey);
-
-                // Mettre à jour la note avec les données ré-encryptées
-                updateNoteEncrypted(note.getId(), reencryptedTitle, reencryptedContent);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                throw new RuntimeException("Erreur lors du ré-encryptage de la note id=" + note.getId());
-            }
-        }
-    }
-
     public void insertOrUpdateNote(Note note) throws Exception {
         if (noteExists(note.getId())) {
             updateNote(note.getId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
@@ -218,8 +182,8 @@ public class NoteDatabase extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_ID, id);
-        cv.put(COLUMN_TITLE, HashUtils.encrypt(title, aesKey));
-        cv.put(COLUMN_CONTENT, HashUtils.encrypt(content, aesKey));
+        cv.put(COLUMN_TITLE, title);
+        cv.put(COLUMN_CONTENT, content);
         cv.put(COLUMN_COLOR, color);
         cv.put(COLUMN_POSITION, position);
         db.insert(TABLE_NAME, null, cv);

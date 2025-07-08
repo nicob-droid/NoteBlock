@@ -1,36 +1,38 @@
 package com.example.noteblock;
 
-import static com.example.noteblock.MainActivity.KEY_PIN_HASH;
-import static com.example.noteblock.MainActivity.PREFS_NAME;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.DiffUtil;
+import androidx.core.app.NotificationCompat;
 
 import com.example.noteblock.Utils.HashUtils;
+import com.example.noteblock.Utils.NotePreferences;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 
+import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+
 
 public class EditNoteActivity extends AppCompatActivity {
     private static final String TAG = "EditNoteActivity";
@@ -44,6 +46,7 @@ public class EditNoteActivity extends AppCompatActivity {
     private long noteId;
     private Note note;
     private int selectedPosition = 0;  // par défaut première position
+    private boolean isNoteDeleted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,27 +99,14 @@ public class EditNoteActivity extends AppCompatActivity {
     }
 
     private void initNoteFromDatabase() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
-
-        assert storedPinHash != null;
-        byte[] aesKey = HashUtils.hexStringToByteArray(storedPinHash);
-
-        db = new NoteDatabase(this, aesKey);
+        db = new NoteDatabase(this);
 
         if (noteId != -1) {
-            try {
-                note = db.getNoteById(noteId);
-                if (note != null) {
-                    // remplis les champs de l’UI
-                    titleInput.setText(note.getTitle());
-                    contentInput.setText(note.getContent());
-                }
-            } catch (Exception e) {
-                Toast.makeText(this, "Erreur déchiffrement : clé incorrecte ou données corrompues", Toast.LENGTH_LONG).show();
-                Log.e("DB_NOTE", "stored PIN hash = " + storedPinHash);
-                finish(); // quitte l'activité
-                return;
+            note = db.getNoteById(noteId);
+            if (note != null) {
+                // remplis les champs de l’UI
+                titleInput.setText(note.getTitle());
+                contentInput.setText(note.getContent());
             }
         }
     }
@@ -128,13 +118,14 @@ public class EditNoteActivity extends AppCompatActivity {
                         .setTitle(getString(R.string.delete_note_confirmation_title))
                         .setMessage(getString(R.string.delete_note_confirmation_message))
                         .setPositiveButton(getString(R.string.yes), (dialog, which) -> {
-                            int deleted = db.deleteNoteById(note.getId());
+                            /*int deleted = db.deleteNoteById(note.getId());
                             if (deleted > 0) {
                                 Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show();
                             } else {
                                 Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
                             }
-                            finish();
+                            finish();*/
+                            deleteNote(note);
                         })
                         .setNegativeButton(getString(R.string.no), null)
                         .show();
@@ -144,39 +135,79 @@ public class EditNoteActivity extends AppCompatActivity {
         }
     }
 
+    private void deleteNote(Note note) {
+        // 1. Supprimer localement
+        int deleted = db.deleteNoteById(note.getId());
+        if (deleted > 0) {
+            Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
+        }
+
+        // 2. Supprimer depuis Firestore si connecté
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            String userId = currentUser.getUid();
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+            db.collection("users")
+                    .document(userId)
+                    .collection("notes")
+                    .document(String.valueOf(note.getId()))
+                    .delete()
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d("DeleteNote", "Note supprimée de Firestore");
+                        isNoteDeleted = true;  // Ici, seulement après réussite
+                        finish();              // Et on quitte après
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e("DeleteNote", "Erreur lors de la suppression de Firestore", e);
+                    });
+        } else {
+            isNoteDeleted = true; // local seulement
+            finish();
+        }
+    }
+
     private void saveNote() {
         Log.i(TAG, "save note");
-        // Save note
+
         String title = titleInput.getText().toString().trim();
         String content = contentInput.getText().toString().trim();
 
-        if (title.isEmpty()) {
-            //Toast.makeText(this, getString(R.string.title_empty), Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (title.isEmpty()) return;
 
         int position = selectedPosition;
+        long id;
 
-        if (noteId == -1) {
-            try {
-                db.insertNote(title, content, selectedColor, position);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            //Toast.makeText(this, getString(R.string.note_added), Toast.LENGTH_SHORT).show();
-        } else {
-            try {
+        try {
+            if (noteId == -1) {
+                // Création : insère et récupère l'id généré
+                id = db.insertNote(title, content, selectedColor, position);
+                Log.i(TAG, "Note créée avec id = " + id);
+            } else {
+                // Modification : update, id reste le même
                 db.updateNote(noteId, title, content, selectedColor, position);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+                id = noteId;
+                Log.i(TAG, "Note modifiée id = " + id);
             }
-            //Toast.makeText(this, getString(R.string.note_updated), Toast.LENGTH_SHORT).show();
-        }
 
-        // Et après sauvegarde locale, synchronise vers Firestore
-        Note note = new Note(noteId == -1 ? /* récupère id auto */0 : noteId, title, content, selectedColor, position);
-        syncNoteToFirestore(note);
+            // Création du timestamp courant (millis depuis epoch)
+            long timestamp = System.currentTimeMillis();
+
+            // Construire Note avec l'id correct
+            Note note = new Note((int) id, title, content, selectedColor, position, timestamp);
+
+            // Synchroniser Firestore : timestamp seulement à la création
+            if(!isNoteDeleted) {
+                syncNoteToFirestore(note, noteId == -1);
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur saveNote", e);
+        }
     }
+
 
     private void shareNote() {
         // Get note text
@@ -193,25 +224,62 @@ public class EditNoteActivity extends AppCompatActivity {
         }
     }
 
-    private void syncNoteToFirestore(Note note) {
-        Map<String, Object> noteMap = new HashMap<>();
-        noteMap.put("title", note.getTitle());
-        noteMap.put("content", note.getContent());
-        noteMap.put("color", note.getColor());
-        noteMap.put("position", note.getPosition());
-        noteMap.put("timestamp", FieldValue.serverTimestamp());
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        String userId = Objects.requireNonNull(FirebaseAuth.getInstance().getCurrentUser()).getUid();  // Récupère l'utilisateur connecté
+    private void syncNoteToFirestore(Note note, boolean isNew) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Log.w(TAG, "Utilisateur non connecté, pas de sync Firestore");
+            return;
+        }
 
-        db.collection("users")
+        String userId = currentUser.getUid();
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        DocumentReference docRef = firestore.collection("users")
                 .document(userId)
                 .collection("notes")
-                .document(String.valueOf(note.getId()))
-                .set(noteMap)
-                .addOnSuccessListener(aVoid -> Log.d(TAG, "Note synced successfully"))
-                .addOnFailureListener(e -> Log.e(TAG, "Error syncing note", e));
+                .document(String.valueOf(note.getId()));
+
+        Map<String, Object> noteData = new HashMap<>();
+        noteData.put("id", note.getId());
+        noteData.put("title", note.getTitle());
+        noteData.put("content", note.getContent());
+        noteData.put("color", note.getColor());
+        noteData.put("position", note.getPosition());
+        noteData.put("timestamp", new Timestamp(new Date(note.getTimestamp())));
+
+        docRef.set(noteData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Note synchronisée dans Firestore id=" + note.getId());
+                    if (isNew) {
+                        showNotification("Nouvelle note créée", note.getTitle());
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Erreur lors de la sync Firestore", e);
+                });
     }
+
+
+    // Exemple simple de méthode notification
+    private void showNotification(String title, String content) {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        String channelId = "note_channel";
+        NotificationChannel channel = new NotificationChannel(channelId, "Notes", NotificationManager.IMPORTANCE_DEFAULT);
+        notificationManager.createNotificationChannel(channel);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.drawable.ic_note) // adapte l'icône
+                .setContentTitle(title)
+                .setContentText(content)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true);
+
+        notificationManager.notify((int) System.currentTimeMillis(), builder.build());
+    }
+
+
+
 
 
 

@@ -66,48 +66,10 @@ public class HashUtils {
     }
 
     // --- Encrypt AES-GCM ---
-    public static String encrypt(String plainText, byte[] key) throws Exception {
-        byte[] iv = new byte[IV_LENGTH];
-        SecureRandom random = new SecureRandom();
-        random.nextBytes(iv);
 
-        Cipher cipher = Cipher.getInstance(AES_MODE);
-        SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-
-        cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
-        byte[] encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
-
-        // Concatène IV + encrypted (IV nécessaire pour déchiffrement)
-        byte[] encryptedIvAndText = new byte[iv.length + encrypted.length];
-        System.arraycopy(iv, 0, encryptedIvAndText, 0, iv.length);
-        System.arraycopy(encrypted, 0, encryptedIvAndText, iv.length, encrypted.length);
-
-        return Base64.encodeToString(encryptedIvAndText, Base64.NO_WRAP);
-    }
 
     // --- Decrypt AES-GCM ---
-    public static String decrypt(String encryptedBase64, byte[] key) throws Exception {
-        byte[] encryptedIvTextBytes = Base64.decode(encryptedBase64, Base64.NO_WRAP);
 
-        // Extraire IV
-        byte[] iv = new byte[IV_LENGTH];
-        System.arraycopy(encryptedIvTextBytes, 0, iv, 0, IV_LENGTH);
-
-        // Extraire ciphertext
-        int encryptedSize = encryptedIvTextBytes.length - IV_LENGTH;
-        byte[] encryptedBytes = new byte[encryptedSize];
-        System.arraycopy(encryptedIvTextBytes, IV_LENGTH, encryptedBytes, 0, encryptedSize);
-
-        Cipher cipher = Cipher.getInstance(AES_MODE);
-        SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
-        GCMParameterSpec spec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-
-        cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
-        byte[] decrypted = cipher.doFinal(encryptedBytes);
-
-        return new String(decrypted, StandardCharsets.UTF_8);
-    }
 
     // --- Helper: convertit bytes en hex ---
     private static String bytesToHex(byte[] bytes) {

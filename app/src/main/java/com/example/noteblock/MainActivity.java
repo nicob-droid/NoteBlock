@@ -11,11 +11,12 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.noteblock.Utils.HashUtils;
+import com.example.noteblock.Utils.NotePreferences;
 
 public class MainActivity extends AppCompatActivity {
 
     public static final String PREFS_NAME = "NoteLockPrefs";
-    public static final String KEY_PIN_HASH = "pin_hash";
+    //public static final String KEY_PIN_HASH = "pin_hash";
 
     private EditText pinInput;
 
@@ -30,8 +31,9 @@ public class MainActivity extends AppCompatActivity {
 
 
         btnSubmit.setOnClickListener(v -> {
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
+            //SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            //String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
+            String storedPinHash = NotePreferences.loadStoredPinHash(this);
 
             String enteredPin = pinInput.getText().toString();
             if (enteredPin.length() != 4) {
@@ -42,7 +44,8 @@ public class MainActivity extends AppCompatActivity {
             if (storedPinHash == null) {
                 // First time setup store the hashed PIN
                 String hash = HashUtils.sha256Hex(enteredPin);
-                prefs.edit().putString(KEY_PIN_HASH, hash).apply();
+                //prefs.edit().putString(KEY_PIN_HASH, hash).apply();
+                NotePreferences.saveStoredPinHash(this, hash);
                 Toast.makeText(this, getString(R.string.pin_set_welcome), Toast.LENGTH_SHORT).show();
                 openNotesActivity();
             } else {

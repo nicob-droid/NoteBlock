@@ -8,19 +8,31 @@ public class Note {
     private String content;
     private int color;
     private int position;
+    private long timestamp;
 
-    public Note(long id, String title, String content, int color, int position) {
+    public Note(long id, String title, String content, int color, int position, long timestamp) {
         this.id = id;
         this.title = title;
         this.content = content;
         this.color = color;
         this.position = position;
+        this.timestamp = timestamp;
     }
 
+    // Constructeur sans timestamp (par défaut, timestamp = now)
+    public Note(long id, String title, String content, int color, int position) {
+        this(id, title, content, color, position, System.currentTimeMillis());
+    }
 
     public String getTitle() { return title; }
     public String getContent() { return content; }
-    public long getId() { return id; }
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
     public void setColor(int color) {
         this.color = color;
     }
@@ -29,6 +41,8 @@ public class Note {
     }
     public int getPosition() { return position; }
     public void setPosition(int position) { this.position = position; }
+    public long getTimestamp() { return timestamp; }
+    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
 
     @Override
     public boolean equals(Object obj) {

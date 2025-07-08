@@ -1,17 +1,11 @@
 package com.example.noteblock;
 
-import static com.example.noteblock.MainActivity.KEY_PIN_HASH;
-import static com.example.noteblock.MainActivity.PREFS_NAME;
 
 import android.Manifest;
 import android.app.PendingIntent;
-import android.content.ContentValues;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
-import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.hardware.SensorManager;
 import android.os.Build;
@@ -21,8 +15,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -38,10 +30,12 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.noteblock.Utils.HashUtils;
+import com.example.noteblock.Utils.NotePreferences;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
@@ -50,11 +44,13 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnNoteClickListener {
@@ -65,8 +61,8 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
     private NotesAdapter adapter;
     private List<Note> notesList;
     private NoteDatabase db;
-    private byte[] aesKey;
     private ListenerRegistration noteListener;
+    private Date lastSeenNoteTimestamp;
 
 
     @Override
@@ -81,13 +77,12 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         // Données
         notesList = new ArrayList<>();
 
+        // Lire la date de la dernière note
+        lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         // Récupérer le PIN
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
-        // Récupérer la Clef AES
-        aesKey = HashUtils.hexStringToByteArray(storedPinHash);
+        String storedPinHash = NotePreferences.loadStoredPinHash(this);
         // Init database
-        db = new NoteDatabase(this, aesKey);
+        db = new NoteDatabase(this);
         // Charger la database
         loadNotes();
         // Init affichage des notes
@@ -235,9 +230,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
             List<Note> decryptedNotes = new ArrayList<>();
 
             for (Note note : encryptedNotes) {
-                String title = HashUtils.decrypt(note.getTitle(), aesKey);
-                String content = HashUtils.decrypt(note.getContent(), aesKey);
-                Note decryptedNote = new Note(note.getId(), title, content, note.getColor(), note.getPosition());
+                Note decryptedNote = new Note(note.getId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
                 decryptedNotes.add(decryptedNote);
             }
 
@@ -261,12 +254,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if (id == R.id.action_change_pin) {
-            // Ouvre l'activité pour changer le PIN
-            Intent intent = new Intent(this, ChangePinActivity.class);
-            startActivity(intent);
-            return true;
-        } else if (item.getItemId() == R.id.action_share_with_user) {
+        if (item.getItemId() == R.id.action_share_with_user) {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
             return true;
@@ -371,15 +359,12 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
                         if (querySnapshot != null) {
                             for (QueryDocumentSnapshot document : task.getResult()) {
                                 long id = document.getLong("id");
-                                String encryptedTitle = document.getString("title");
-                                String encryptedContent = document.getString("content");
+                                String title = document.getString("title");
+                                String content = document.getString("content");
                                 int color = document.getLong("color").intValue();
                                 int position = document.getLong("position").intValue();
 
                                 try {
-                                    String title = HashUtils.decrypt(encryptedTitle, aesKey);
-                                    String content = HashUtils.decrypt(encryptedContent, aesKey);
-
                                     Note note = new Note(id, title, content, color, position);
 
                                     // Chercher si la note existe déjà en local
@@ -446,6 +431,11 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
 
     private void startListeningNotes(String userId) {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+        // Charger le dernier timestamp enregistré (ex: depuis SharedPreferences)
+        lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
+        Log.d(TAG, "lastSeenNoteTimestamp = " + lastSeenNoteTimestamp);
+
         noteListener = firestore
                 .collection("users")
                 .document(userId)
@@ -458,26 +448,55 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
                     if (snapshots != null) {
                         for (DocumentChange dc : snapshots.getDocumentChanges()) {
                             if (dc.getType() == DocumentChange.Type.ADDED) {
-                                onRemoteNoteAdded(dc.getDocument());
+                                DocumentSnapshot doc = dc.getDocument();
+
+                                // Extraction robuste du timestamp
+                                Object timestampObj = doc.get("timestamp");
+                                Date createdDate = null;
+
+                                if (timestampObj instanceof com.google.firebase.Timestamp) {
+                                    createdDate = ((com.google.firebase.Timestamp) timestampObj).toDate();
+                                } else if (timestampObj instanceof Long) {
+                                    createdDate = new Date((Long) timestampObj);
+                                } else if (timestampObj instanceof Double) {
+                                    createdDate = new Date(((Double) timestampObj).longValue());
+                                } else {
+                                    Log.w(TAG, "Format de timestamp non reconnu : " + timestampObj);
+                                }
+
+                                if (createdDate != null) {
+                                    if (createdDate.after(lastSeenNoteTimestamp)) {
+                                        Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
+
+                                        // Notification ici
+                                        onRemoteNoteAdded(doc);
+
+                                        // Mettre à jour lastSeenNoteTimestamp et sauvegarder
+                                        lastSeenNoteTimestamp = createdDate;
+                                        NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
+                                    } else {
+                                        Log.d(TAG, "Note ajoutée mais timestamp plus ancien, pas de notif");
+                                    }
+                                } else {
+                                    Log.w(TAG, "Note sans timestamp utilisable");
+                                }
                             }
-                            // tu peux aussi gérer MODIFIED / REMOVED si besoin
                         }
                     }
                 });
     }
+
+
+
+
+
 
     private void onRemoteNoteAdded(DocumentSnapshot doc) {
         // 1) Sauvegarde la note en local
         saveRemoteNoteLocally(doc);
 
         // 2) Prépare et affiche la notification
-        String encTitle = doc.getString("title");
-        String title;
-        try {
-            title = HashUtils.decrypt(encTitle, aesKey);
-        } catch (Exception e) {
-            title = "New note";
-        }
+        /*String title = doc.getString("title");
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApplication.CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_note)
@@ -499,7 +518,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
                     .notify(notificationId, builder.build());
         } else {
             Log.w(TAG, "Notification non envoyée : permission manquante");
-        }
+        }*/
     }
 
 
@@ -515,8 +534,8 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         }
         long id = idObj;
 
-        String encTitle   = doc.getString("title");
-        String encContent = doc.getString("content");
+        String title   = doc.getString("title");
+        String content = doc.getString("content");
 
         Long colorObj = doc.getLong("color");
         if (colorObj == null) colorObj = 0L; // valeur par défaut si absent
@@ -527,9 +546,6 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
         int position = positionObj.intValue();
 
         try {
-            String title   = HashUtils.decrypt(encTitle, aesKey);
-            String content = HashUtils.decrypt(encContent, aesKey);
-
             Note note = new Note(id, title, content, color, position);
             db.insertOrUpdateNote(note);
 
@@ -540,7 +556,5 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
             Log.e(TAG, "Erreur décrypt/save local", e);
         }
     }
-
-
 
 }
