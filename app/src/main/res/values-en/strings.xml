@@ -67,5 +67,31 @@
     <string name="my_current_id">My current user ID : </string>
     <string name="share_id_with">Share your ID via</string>
     <string name="load_notes_error">Error while loading notes</string>
+    <string name="new_note_from_distant">"New note created"</string>
+    <string name="settings">Settings</string>
+    <string name="create">Create</string>
+    <string name="cancel">Cancel</string>
+    <string name="please_fill_all">Please fill in all fields</string>
+
+    <string name="firebase_connection">Firebase connection</string>
+    <string name="create_account">Create an account</string>
+    <string name="create_new_user">Create a new user to share notes</string>
+    <string name="login_with_email_password">Login with email and password</string>
+    <string name="logging_out_firebase">Logging out of Firebase</string>
+    <string name="sharing_notes">Sharing notes</string>
+    <string name="remote_user_uid">Remote User UID</string>
+    <string name="share_id_title">Send my UID</string>
+    <string name="share_id_summary">Copy or send my UID to another user</string>
+    <string name="save_sharing_title">Activate Sharing</string>
+    <string name="save_sharing_summary">Enable sharing with this user</string>
+    <string name="delete_sharing_title">Delete Sharing</string>
+    <string name="delete_sharing_summary">Remove the linked UID</string>
+    <string name="uid_to_share_notes_with">Firebase UID to share your notes with</string>
+
+    <string name="sharing_enabled_with">Sharing with : </string>
+
+    <string name="category_appearance">Appearance</string>
+    <string name="theme_title">App theme</string>
+    <string name="theme_summary">Choose light, dark or automatic</string>
 
 </resources>

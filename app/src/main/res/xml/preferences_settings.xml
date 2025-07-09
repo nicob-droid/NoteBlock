@@ -1,0 +1,62 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Section Connexion -->
+    <PreferenceCategory android:title="@string/firebase_connection">
+        <Preference
+            android:key="@string/key_register"
+            android:title="@string/create_account"
+            android:summary="@string/create_new_user" />
+
+        <Preference
+            android:key="@string/key_login"
+            android:title="@string/log_in"
+            android:summary="@string/login_with_email_password" />
+
+        <Preference
+            android:key="@string/key_logout"
+            android:title="@string/log_out"
+            android:summary="@string/logging_out_firebase"
+            android:icon="@android:drawable/ic_lock_power_off" />
+    </PreferenceCategory>
+
+    <!-- Section Partage -->
+    <PreferenceCategory
+        android:title="@string/sharing_notes"
+        android:key="@string/sharing_notes" >
+        <Preference
+            android:key="@string/key_share_id"
+            android:title="@string/share_id_title"
+            android:summary="@string/share_id_summary" />
+
+        <EditTextPreference
+            android:key="@string/key_shared_user_id"
+            android:title="@string/remote_user_uid"
+            android:summary="@string/uid_to_share_notes_with" />
+
+        <Preference
+            android:key="@string/key_save_sharing"
+            android:title="@string/save_sharing_title"
+            android:summary="@string/save_sharing_summary" />
+
+        <Preference
+            android:key="@string/key_delete_sharing"
+            android:title="@string/delete_sharing_title"
+            android:summary="@string/delete_sharing_summary" />
+    </PreferenceCategory>
+
+
+<!--    <PreferenceCategory-->
+<!--        android:key="appearance_category"-->
+<!--        android:title="@string/category_appearance">-->
+
+<!--        <ListPreference-->
+<!--            android:key="@string/key_theme_preference"-->
+<!--            android:title="@string/theme_title"-->
+<!--            android:summary="@string/theme_summary"-->
+<!--            android:entries="@array/theme_entries"-->
+<!--            android:entryValues="@array/theme_values"-->
+<!--            android:defaultValue="auto" />-->
+<!--    </PreferenceCategory>-->
+
+
+</PreferenceScreen>

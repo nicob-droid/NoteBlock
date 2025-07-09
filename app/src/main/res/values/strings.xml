@@ -67,4 +67,34 @@
     <string name="my_current_id">Mon ID utilisateur : </string>
     <string name="share_id_with">Partager votre ID via</string>
     <string name="load_notes_error">Erreur lors du chargement des notes</string>
+    <string name="new_note_from_distant">Nouvelle note créée</string>
+    <string name="settings">Paramètres</string>
+    <string name="create">Créer</string>
+    <string name="cancel">Annuler</string>
+    <string name="please_fill_all">Veuillez remplir tous les champs</string>
+    
+    <string name="firebase_connection">Connexion Firebase</string>
+    <string name="create_account">Créer un compte</string>
+    <string name="create_new_user">Créer un nouvel utilisateur pour partager les notes</string>
+    <string name="login_with_email_password">Connexion avec e-mail et mot de passe</string>
+    <string name="logging_out_firebase">Déconnexion de Firebase</string>
+    <string name="sharing_notes">Partage des notes</string>
+    <string name="remote_user_uid">UID utilisateur distant</string>
+    <string name="share_id_title">Envoyer mon UID</string>
+    <string name="share_id_summary">Copier ou envoyer mon UID à un autre utilisateur</string>
+    <string name="save_sharing_title">Activer le partage</string>
+    <string name="save_sharing_summary">Activer le partage avec cet utilisateur</string>
+    <string name="delete_sharing_title">Supprimer le partage</string>
+    <string name="delete_sharing_summary">Supprimer l\'UID lié</string>
+    <string name="uid_to_share_notes_with">UID Firebase avec qui partager vos notes</string>
+
+    <string name="sharing_enabled_with">Partage avec : </string>
+
+    <!-- Catégorie -->
+    <string name="category_appearance">Apparence</string>
+    <!-- Titre et résumé -->
+    <string name="theme_title">Thème de l\'application</string>
+    <string name="theme_summary">Choisissez clair, sombre ou automatique</string>
+
+
 </resources>

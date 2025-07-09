@@ -1,6 +1,10 @@
 package com.example.noteblock;
 
 
+import static com.example.noteblock.NotesActivity.EXTRA_NOTE_COLOR;
+import static com.example.noteblock.NotesActivity.EXTRA_NOTE_ID;
+import static com.example.noteblock.NotesActivity.EXTRA_NOTE_POSITION;
+
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -34,7 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public class EditNoteActivity extends AppCompatActivity {
+public class EditNoteActivity extends BaseActivity  {
     private static final String TAG = "EditNoteActivity";
     private EditText titleInput;
     private EditText contentInput;
@@ -89,13 +93,12 @@ public class EditNoteActivity extends AppCompatActivity {
 
         titleInput = findViewById(R.id.edit_note_title);
         contentInput = findViewById(R.id.edit_note_content);
-        //btnSave = findViewById(R.id.btn_save_note);
         btnDelete = findViewById(R.id.fab_delete);
         ll_delete = findViewById(R.id.ll_delete);
         btnShare = findViewById(R.id.fab_share);
-        noteId = getIntent().getLongExtra("note_id", -1);
-        selectedColor = getIntent().getIntExtra("note_color", Color.WHITE);
-        selectedPosition = getIntent().getIntExtra("note_position", -1);
+        noteId = getIntent().getLongExtra(EXTRA_NOTE_ID, -1);
+        selectedColor = getIntent().getIntExtra(EXTRA_NOTE_COLOR, Color.WHITE);
+        selectedPosition = getIntent().getIntExtra(EXTRA_NOTE_POSITION, -1);
     }
 
     private void initNoteFromDatabase() {
@@ -118,31 +121,21 @@ public class EditNoteActivity extends AppCompatActivity {
                         .setTitle(getString(R.string.delete_note_confirmation_title))
                         .setMessage(getString(R.string.delete_note_confirmation_message))
                         .setPositiveButton(getString(R.string.yes), (dialog, which) -> {
-                            /*int deleted = db.deleteNoteById(note.getId());
-                            if (deleted > 0) {
-                                Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show();
-                            } else {
-                                Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
-                            }
-                            finish();*/
+                            // remove note
                             deleteNote(note);
                         })
                         .setNegativeButton(getString(R.string.no), null)
                         .show();
             });
         } else {
-            ll_delete.setVisibility(View.GONE); // Masquer le bouton si c'est une nouvelle note
+            // Masquer le bouton SUPPRIMER si c'est une nouvelle note
+            ll_delete.setVisibility(View.GONE);
         }
     }
 
     private void deleteNote(Note note) {
         // 1. Supprimer localement
-        int deleted = db.deleteNoteById(note.getId());
-        if (deleted > 0) {
-            Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
-        }
+        deleteNoteLocal(note);
 
         // 2. Supprimer depuis Firestore si connecté
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -167,6 +160,19 @@ public class EditNoteActivity extends AppCompatActivity {
             isNoteDeleted = true; // local seulement
             finish();
         }
+    }
+
+    private int deleteNoteLocal(Note note) {
+        int deleted = db.deleteNoteById(note.getId());
+        if (deleted > 0) {
+            Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "delete note local: success");
+        } else {
+            Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "delete note local: error");
+        }
+
+        return deleted;
     }
 
     private void saveNote() {
@@ -251,7 +257,7 @@ public class EditNoteActivity extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Note synchronisée dans Firestore id=" + note.getId());
                     if (isNew) {
-                        showNotification("Nouvelle note créée", note.getTitle());
+                        showNotification(getString(R.string.new_note_from_distant), note.getTitle());
                     }
                 })
                 .addOnFailureListener(e -> {

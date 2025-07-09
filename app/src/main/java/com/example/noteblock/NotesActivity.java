@@ -29,6 +29,8 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.noteblock.Settings.SettingsFragment;
+import com.example.noteblock.Settings.SettingsPreferencesActivity;
 import com.example.noteblock.Utils.HashUtils;
 import com.example.noteblock.Utils.NotePreferences;
 import com.google.android.flexbox.FlexboxLayout;
@@ -53,8 +55,11 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnNoteClickListener {
+public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteClickListener {
     private static final String TAG = "NotesActivity";
+    public static final String EXTRA_NOTE_ID = "note_id";
+    public static final String EXTRA_NOTE_COLOR = "note_color";
+    public static final String EXTRA_NOTE_POSITION = "note_position";
     private static final int REQUEST_CODE_POST_NOTIF = 1001;
 
     private RecyclerView recyclerView;
@@ -253,13 +258,9 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (item.getItemId() == R.id.action_share_with_user) {
-            Intent intent = new Intent(this, SettingsActivity.class);
-            startActivity(intent);
-            return true;
-        } else if (item.getItemId() == R.id.action_login) {
-            Intent intent = new Intent(this, LoginActivity.class);
+        if (item.getItemId() == R.id.action_settings) {
+            // Lancer l'activité des paramètres
+            Intent intent = new Intent(this, SettingsPreferencesActivity.class);
             startActivity(intent);
             return true;
         }
@@ -270,9 +271,9 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
     public void onNoteClick(Note note) {
         // Ouvre l'édition de la note (ex: activity EditNote)
         Intent intent = new Intent(this, EditNoteActivity.class);
-        intent.putExtra("note_id", note.getId()); // ou autre méthode pour identifier la note
-        intent.putExtra("note_color", note.getColor());
-        intent.putExtra("note_position", note.getPosition());
+        intent.putExtra(EXTRA_NOTE_ID, note.getId()); // ou autre méthode pour identifier la note
+        intent.putExtra(EXTRA_NOTE_COLOR, note.getColor());
+        intent.putExtra(EXTRA_NOTE_POSITION, note.getPosition());
         startActivity(intent);
     }
 
@@ -432,7 +433,7 @@ public class NotesActivity extends AppCompatActivity implements NotesAdapter.OnN
     private void startListeningNotes(String userId) {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
-        // Charger le dernier timestamp enregistré (ex: depuis SharedPreferences)
+        // Charger le dernier timestamp enregistré
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         Log.d(TAG, "lastSeenNoteTimestamp = " + lastSeenNoteTimestamp);
 

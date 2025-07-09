@@ -9,14 +9,13 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
+import androidx.preference.PreferenceManager;
 
 import com.example.noteblock.Utils.HashUtils;
 import com.example.noteblock.Utils.NotePreferences;
 
-public class MainActivity extends AppCompatActivity {
-
-    public static final String PREFS_NAME = "NoteLockPrefs";
-    //public static final String KEY_PIN_HASH = "pin_hash";
+public class MainActivity extends BaseActivity  {
 
     private EditText pinInput;
 
@@ -28,11 +27,7 @@ public class MainActivity extends AppCompatActivity {
         pinInput = findViewById(R.id.pin_input);
         Button btnSubmit = findViewById(R.id.btn_submit);
 
-
-
         btnSubmit.setOnClickListener(v -> {
-            //SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            //String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
             String storedPinHash = NotePreferences.loadStoredPinHash(this);
 
             String enteredPin = pinInput.getText().toString();

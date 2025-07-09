@@ -14,4 +14,10 @@
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
     </style>
+
+    <style name="Theme.NoteBlock.NoActionBar" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <!-- Désactive la barre d'action fournie par le système -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
 </resources>

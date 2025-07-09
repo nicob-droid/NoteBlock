@@ -36,5 +36,11 @@
         <activity android:name=".NotesActivity" />
         <activity android:name=".SettingsActivity" />
         <activity android:name=".LoginActivity" />
+
+        <activity
+            android:name=".Settings.SettingsPreferencesActivity"
+            android:theme="@style/Theme.NoteBlock.NoActionBar"
+            android:label="@string/settings" />
+
     </application>
 </manifest>

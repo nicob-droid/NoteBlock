@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="key_register" translatable="false">register</string>
+    <string name="key_login" translatable="false">login</string>
+    <string name="key_logout" translatable="false">logout</string>
+    <string name="key_shared_user_id" translatable="false">shared_user_id</string>
+    <string name="key_share_id" translatable="false">share_id</string>
+    <string name="key_save_sharing" translatable="false">save_sharing</string>
+    <string name="key_delete_sharing" translatable="false">delete_sharing</string>
+    <string name="key_theme_preference" translatable="false">theme_preference</string>
+</resources>
