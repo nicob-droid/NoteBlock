@@ -4,10 +4,10 @@
     <color name="colorPrimaryVariant">#47a0d1</color>
     <color name="colorOnPrimary">#FFFFFFFF</color>
     <color name="colorAccent">#023663</color>
-    <color name="colorSecondary">#2780d1</color>
+    <color name="colorSecondary">#b0e3f8</color>
     <color name="colorSecondaryVariant">#47a0d1</color>
-    <color name="colorOnSecondary">#FFFFFFFF</color>
-    <color name="colorWindowBackground">#FFFFFFFF</color> <!-- Blanc pour mode clair -->
-    <color name="colorTextPrimary">#FF000000</color>
+    <color name="colorOnSecondary">#FF333333</color>
+    <color name="colorWindowBackground">#FF000000</color>
+    <color name="colorTextPrimary">#FFFFFFFF</color>
     <color name="colorTextSecondary">#FF888888</color>
 </resources>

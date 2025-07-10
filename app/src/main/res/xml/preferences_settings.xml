@@ -45,18 +45,18 @@
     </PreferenceCategory>
 
 
-<!--    <PreferenceCategory-->
-<!--        android:key="appearance_category"-->
-<!--        android:title="@string/category_appearance">-->
+    <PreferenceCategory
+        android:key="appearance_category"
+        android:title="@string/category_appearance">
 
-<!--        <ListPreference-->
-<!--            android:key="@string/key_theme_preference"-->
-<!--            android:title="@string/theme_title"-->
-<!--            android:summary="@string/theme_summary"-->
-<!--            android:entries="@array/theme_entries"-->
-<!--            android:entryValues="@array/theme_values"-->
-<!--            android:defaultValue="auto" />-->
-<!--    </PreferenceCategory>-->
+        <ListPreference
+            android:key="@string/key_theme_preference"
+            android:title="@string/theme_title"
+            android:summary="@string/theme_summary"
+            android:entries="@array/theme_entries"
+            android:entryValues="@array/theme_values"
+            android:defaultValue="auto" />
+    </PreferenceCategory>
 
 
 </PreferenceScreen>

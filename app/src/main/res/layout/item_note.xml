@@ -29,6 +29,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/title"
+                android:textColor="?attr/colorAccent"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -37,6 +38,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/note_content"
+                android:textColor="?attr/colorAccent"
                 android:textSize="14sp"
                 android:maxLines="3"
                 android:ellipsize="end"
@@ -49,6 +51,7 @@
             android:layout_weight="1"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/modify_color"
+            app:tint="@color/colorAccent"
             android:padding="4dp"
             android:src="@drawable/ic_palette" />
     </LinearLayout>

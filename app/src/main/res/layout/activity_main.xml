@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:padding="32dp"
     android:gravity="center"
-    android:background="@android:color/white">
+    android:background="@color/colorWindowBackground">
 
     <TextView
         android:id="@+id/title_text"
@@ -16,7 +16,7 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="24dp"
-        android:textColor="#000000" />
+        android:textColor="@color/colorTextPrimary" />
 
     <EditText
         android:id="@+id/pin_input"
@@ -28,6 +28,7 @@
         android:textSize="24sp"
         android:ems="4"
         android:hint="PIN"
+        android:textColor="@color/colorTextSecondary"
         android:importantForAutofill="no"
         android:autofillHints=""
         android:background="@android:drawable/edit_text"
