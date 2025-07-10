@@ -1,4 +1,4 @@
-package com.example.noteblock.Settings;
+package com.example.cosmonote.Settings;
 
 
 import android.app.Dialog;
@@ -13,7 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
-import com.example.noteblock.R;
+import com.example.cosmonote.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 

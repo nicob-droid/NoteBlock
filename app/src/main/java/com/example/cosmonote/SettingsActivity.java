@@ -1,4 +1,4 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 import android.content.Intent;
 import android.content.SharedPreferences;

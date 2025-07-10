@@ -1,4 +1,4 @@
-package com.example.noteblock.Utils;
+package com.example.cosmonote.Utils;
 
 
 import android.content.Context;

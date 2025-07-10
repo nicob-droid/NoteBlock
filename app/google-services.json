@@ -7,9 +7,28 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:573104189835:android:4d6bd5eb215f6236cb7f8e",
+        "android_client_info": {
+          "package_name": "com.example.cosmonote"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB42jrffCyY3oJLXwQqQlZvct7MvqnlbD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:573104189835:android:afee78e853b9152acb7f8e",
         "android_client_info": {
-          "package_name": "com.example.noteblock"
+          "package_name": "com.example.cosmonote"
         }
       },
       "oauth_client": [],

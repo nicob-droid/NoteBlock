@@ -1,10 +1,10 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.noteblock.Settings.ThemeHelper;
+import com.example.cosmonote.Settings.ThemeHelper;
 
 public class BaseActivity extends AppCompatActivity {
 

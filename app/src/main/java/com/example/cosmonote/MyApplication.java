@@ -1,4 +1,4 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 import android.app.Application;
 import android.app.NotificationChannel;

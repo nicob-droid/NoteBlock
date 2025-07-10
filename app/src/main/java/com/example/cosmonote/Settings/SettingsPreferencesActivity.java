@@ -1,12 +1,12 @@
-package com.example.noteblock.Settings;
+package com.example.cosmonote.Settings;
 
 
 import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
-import com.example.noteblock.BaseActivity;
-import com.example.noteblock.R;
+import com.example.cosmonote.BaseActivity;
+import com.example.cosmonote.R;
 
 public class SettingsPreferencesActivity extends BaseActivity {
     @Override

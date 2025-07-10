@@ -1,9 +1,9 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 
-import static com.example.noteblock.NotesActivity.EXTRA_NOTE_COLOR;
-import static com.example.noteblock.NotesActivity.EXTRA_NOTE_ID;
-import static com.example.noteblock.NotesActivity.EXTRA_NOTE_POSITION;
+import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_COLOR;
+import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_ID;
+import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_POSITION;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -22,8 +22,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.NotificationCompat;
 
-import com.example.noteblock.Utils.HashUtils;
-import com.example.noteblock.Utils.NotePreferences;
+import com.example.cosmonote.Utils.HashUtils;
+import com.example.cosmonote.Utils.NotePreferences;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;

@@ -1,4 +1,4 @@
-package com.example.noteblock.Settings;
+package com.example.cosmonote.Settings;
 
 
 import android.content.Context;
@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.preference.PreferenceManager;
 
-import com.example.noteblock.R;
+import com.example.cosmonote.R;
 
 public class ThemeHelper {
 

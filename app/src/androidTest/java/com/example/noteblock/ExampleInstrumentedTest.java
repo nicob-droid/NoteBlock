@@ -1,4 +1,4 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 import android.content.Context;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("com.example.noteblock", appContext.getPackageName());
+        assertEquals("com.example.cosmonote", appContext.getPackageName());
     }
 }

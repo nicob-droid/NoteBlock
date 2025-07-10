@@ -1,4 +1,4 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 import android.content.Context;
 import android.content.Intent;
@@ -12,8 +12,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.preference.PreferenceManager;
 
-import com.example.noteblock.Utils.HashUtils;
-import com.example.noteblock.Utils.NotePreferences;
+import com.example.cosmonote.Utils.HashUtils;
+import com.example.cosmonote.Utils.NotePreferences;
 
 public class MainActivity extends BaseActivity  {
 

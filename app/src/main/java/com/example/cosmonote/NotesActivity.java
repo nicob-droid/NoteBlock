@@ -1,4 +1,4 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 
 import android.Manifest;
@@ -29,10 +29,10 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.noteblock.Settings.SettingsFragment;
-import com.example.noteblock.Settings.SettingsPreferencesActivity;
-import com.example.noteblock.Utils.HashUtils;
-import com.example.noteblock.Utils.NotePreferences;
+import com.example.cosmonote.Settings.SettingsFragment;
+import com.example.cosmonote.Settings.SettingsPreferencesActivity;
+import com.example.cosmonote.Utils.HashUtils;
+import com.example.cosmonote.Utils.NotePreferences;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;

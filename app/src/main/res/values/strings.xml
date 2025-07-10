@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">NoteBlock</string>
-    <string name="app_widget_name">NoteBlock 📝"</string>
+    <string name="app_name">CosmoNote</string>
+    <string name="app_widget_name">CosmoNote 📝"</string>
     <string name="enter_4_digits">Entrez votre PIN à 4 chiffres</string>
     <string name="pin_must_be_4_digits">Le PIN doit comporter 4 chiffres</string>
     <string name="pin_set_welcome">PIN enregistré. Bienvenue !</string>

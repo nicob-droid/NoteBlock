@@ -1,4 +1,4 @@
-package com.example.noteblock;
+package com.example.cosmonote;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.graphics.Color;
 import android.util.Log;
 
-import com.example.noteblock.Utils.HashUtils;
+import com.example.cosmonote.Utils.HashUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
