@@ -24,6 +24,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.example.cosmonote.Utils.HashUtils;
 import com.example.cosmonote.Utils.NotePreferences;
+import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -257,7 +258,7 @@ public class EditNoteActivity extends BaseActivity  {
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "Note synchronisée dans Firestore id=" + note.getId());
                     if (isNew) {
-                        showNotification(getString(R.string.new_note_from_distant), note.getTitle());
+                        //NotificationHelper.showNoteNotification(this, getString(R.string.new_note_from_distant), note.getTitle());
                     }
                 })
                 .addOnFailureListener(e -> {

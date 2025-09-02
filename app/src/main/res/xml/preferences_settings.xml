@@ -44,6 +44,15 @@
             android:summary="@string/delete_sharing_summary" />
     </PreferenceCategory>
 
+    <PreferenceCategory
+        android:key="@string/notifications"
+        android:title="@string/notifications">
+        <SwitchPreferenceCompat
+            android:key="@string/key_notifications"
+            android:title="@string/enable_notifications"
+            android:summary="@string/receive_notifications_from_app"
+            android:defaultValue="false" />
+    </PreferenceCategory>
 
     <PreferenceCategory
         android:key="appearance_category"

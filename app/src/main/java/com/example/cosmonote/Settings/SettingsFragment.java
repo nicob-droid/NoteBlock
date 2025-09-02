@@ -1,19 +1,26 @@
 package com.example.cosmonote.Settings;
 
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.core.app.NotificationManagerCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.SwitchPreferenceCompat;
 
 import com.example.cosmonote.R;
+import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
@@ -26,6 +33,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
 
     private Preference registerPref, loginPref, logoutPref;
     private Preference shareIdPref, saveSharingPref, deleteSharingPref;
+    private SwitchPreferenceCompat notificationPref;
     private EditTextPreference sharedUserIdPref;
     private PreferenceCategory sharingNotesCategory;
 
@@ -45,6 +53,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         saveSharingPref = findPreference(getString(R.string.key_save_sharing));
         deleteSharingPref = findPreference(getString(R.string.key_delete_sharing));
         sharingNotesCategory = findPreference(getString(R.string.sharing_notes));
+        notificationPref = findPreference(getString(R.string.key_notifications));
         ListPreference themePref = findPreference(getString(R.string.key_theme_preference));
         if (themePref != null) {
             themePref.setOnPreferenceChangeListener((preference, newValue) -> {
@@ -118,19 +127,27 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                 if (user != null) {
                     String ownerUid = user.getUid();
                     FirebaseFirestore.getInstance()
-                            .collection("shared_users")
+                            .collection("users")
                             .document(ownerUid)
-                            .delete()
-                            .addOnSuccessListener(unused -> {
-                                Toast.makeText(getContext(), getString(R.string.share_deleted), Toast.LENGTH_SHORT).show();
+                            .collection("shared_users")
+                            .get()
+                            .addOnSuccessListener(querySnapshot -> {
+                                // Supprimer tous les documents de shared_users
+                                for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                    doc.getReference().delete();
+                                }
+
+                                Toast.makeText(requireContext(), getString(R.string.share_deleted), Toast.LENGTH_SHORT).show();
+
                                 if (sharedUserIdPref != null) {
                                     sharedUserIdPref.setText("");
                                     sharedUserIdPref.setSummary(getString(R.string.uid_to_share_notes_with));
                                 }
+
                                 updateSharingPrefState(ownerUid);
                             })
                             .addOnFailureListener(e -> {
-                                Toast.makeText(getContext(), getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(requireContext(), getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
                                 Log.e("Firestore", "Erreur suppression partage", e);
                             });
                 }
@@ -138,9 +155,33 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             });
         }
 
+
+        if(notificationPref != null) {
+            notificationPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                boolean enabled = (Boolean) newValue;
+                // gérer activation/désactivation ici
+                manageNotifications(enabled);
+                return true;
+            });
+        }
+
         //
         initSharedUserId(auth.getCurrentUser());
     }
+
+    private void manageNotifications(boolean enabled) {
+        if (enabled) {
+            if (!NotificationHelper.areNotificationsEnabled(requireContext())) {
+                NotificationHelper.openNotificationSettings(requireContext());
+            } else {
+                // Tu peux lancer un service ici si nécessaire
+            }
+        } else {
+            NotificationHelper.cancelAllNotifications(requireContext());
+        }
+    }
+
+
 
     @Override
     public void onLoginSuccess(String email) {
@@ -170,15 +211,17 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         if (user != null) {
             String ownerUid = user.getUid();
             FirebaseFirestore.getInstance()
-                    .collection("shared_users")
+                    .collection("users")
                     .document(ownerUid)
+                    .collection("shared_users")
                     .get()
-                    .addOnSuccessListener(documentSnapshot -> {
-                        if (documentSnapshot.exists()) {
-                            String sharedUid = documentSnapshot.getString("sharedUserId");
+                    .addOnSuccessListener(querySnapshot -> {
+                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                            DocumentSnapshot firstDoc = querySnapshot.getDocuments().get(0);
+                            String sharedUid = firstDoc.getString("sharedUserId");
                             if (sharedUid != null && sharedUserIdPref != null) {
                                 sharedUserIdPref.setText(sharedUid);
-                                sharedUserIdPref.setSummary(getString(R.string.sharing_enabled_with) + sharedUid);
+                                sharedUserIdPref.setSummary(getString(R.string.sharing_enabled_with) + " " + sharedUid);
                             }
                         }
                         // Met à jour l'état des boutons
@@ -186,20 +229,19 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                     })
                     .addOnFailureListener(e -> {
                         Log.e("Firestore", "Erreur lors du chargement du sharedUserId", e);
-
                     });
         }
     }
 
+
     private void updateSharingPrefState(String ownerUid) {
         FirebaseFirestore.getInstance()
-                .collection("shared_users")
+                .collection("users")
                 .document(ownerUid)
+                .collection("shared_users")
                 .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    boolean hasSharedUid = documentSnapshot.exists() &&
-                            documentSnapshot.getString("sharedUserId") != null &&
-                            !documentSnapshot.getString("sharedUserId").isEmpty();
+                .addOnSuccessListener(querySnapshot  -> {
+                    boolean hasSharedUid = querySnapshot != null && !querySnapshot.isEmpty();
 
                     if (saveSharingPref != null) {
                         saveSharingPref.setEnabled(!hasSharedUid);
@@ -220,16 +262,21 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         data.put("ownerId", ownerUserId);
         data.put("sharedUserId", sharedUserId);
 
-        db.collection("shared_users")
+        // On crée un document sous users/{ownerUserId}/shared_users/{sharedUserId}
+        db.collection("users")
                 .document(ownerUserId)
+                .collection("shared_users")
+                .document(sharedUserId) // clé = sharedUserId pour permettre plusieurs partages si nécessaire
                 .set(data)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(getContext(), getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
                     updateSharingPrefState(ownerUserId);
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(getContext(), getString(R.string.share_save_error), Toast.LENGTH_LONG).show();
+                    Toast.makeText(requireContext(), getString(R.string.share_save_error), Toast.LENGTH_LONG).show();
+                    Log.e("Firestore", "Erreur lors de saveSharedUserId", e);
                 });
     }
+
 
 }

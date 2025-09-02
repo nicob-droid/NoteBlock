@@ -3,6 +3,7 @@ package com.example.cosmonote;
 
 import android.Manifest;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
@@ -33,6 +34,7 @@ import com.example.cosmonote.Settings.SettingsFragment;
 import com.example.cosmonote.Settings.SettingsPreferencesActivity;
 import com.example.cosmonote.Utils.HashUtils;
 import com.example.cosmonote.Utils.NotePreferences;
+import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -135,7 +137,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             }
         });
         itemTouchHelper.attachToRecyclerView(recyclerView);
-
     }
 
     private void loadNotes() {
@@ -174,22 +175,26 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
             // 2) Récupère le sharedUserId depuis Firestore, puis écoute-le
             FirebaseFirestore.getInstance()
-                    .collection("shared_users")
+                    .collection("users")
                     .document(currentUserId)
+                    .collection("shared_users")
                     .get()
-                    .addOnSuccessListener(doc -> {
-                        if (doc.exists()) {
-                            String sharedUserId = doc.getString("sharedUserId");
-                            if (sharedUserId != null
-                                    && !sharedUserId.isEmpty()
-                                    && !sharedUserId.equals(currentUserId)) {
-                                startListeningNotes(sharedUserId);
+                    .addOnSuccessListener(querySnapshot -> {
+                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                String sharedUserId = doc.getString("sharedUserId");
+                                if (sharedUserId != null
+                                        && !sharedUserId.isEmpty()
+                                        && !sharedUserId.equals(currentUserId)) {
+                                    startListeningNotes(sharedUserId);
+                                }
                             }
                         }
                     })
                     .addOnFailureListener(e -> {
                         Log.w(TAG, "Impossible de récupérer sharedUserId", e);
                     });
+
         } else {
             // Tu peux rester en local ici
         }
@@ -347,8 +352,10 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }).start();
     }
 
-    private void fetchNotesFromFirestore(String userId) {
+    private void fetchNotesFromFirestore(Context context, String userId) {
         FirebaseFirestore firebase = FirebaseFirestore.getInstance();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        boolean isRemoteUser = currentUser != null && !userId.equals(currentUser.getUid());
 
         firebase.collection("users")
                 .document(userId)
@@ -370,14 +377,20 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
                                     // Chercher si la note existe déjà en local
                                     Note localNote = db.getNoteById(id);
-                                    if (localNote == null) {
-                                        // Pas trouvée, insertion
+                                    boolean isNew = (localNote == null);
+
+                                    if (isNew) {
                                         db.insertOrUpdateNote(note);
-                                    } else {
-                                        // Trouvée, comparer et mettre à jour si différent
-                                        if (!localNote.equals(note)) {
-                                            db.insertOrUpdateNote(note);
+
+                                        if (isRemoteUser) {
+                                            NotificationHelper.showNoteNotification(
+                                                    context,
+                                                    context.getString(R.string.new_note_from_distant),
+                                                    note.getTitle()
+                                            );
                                         }
+                                    } else if (!localNote.equals(note)) {
+                                        db.insertOrUpdateNote(note);
                                     }
 
                                 } catch (Exception e) {
@@ -400,34 +413,37 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             return;
         }
 
-        //String currentUserId = firebaseUser.getUid();
-
         // 1. Charger les notes locales (optionnel)
         loadNotesFromLocalDatabase();
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
         // 2. Récupérer l'UID du sharedUser (s'il y en a) depuis Firestore
-        db.collection("shared_users")
+        db.collection("users")
                 .document(userId)
+                .collection("shared_users")
                 .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String sharedUserId = documentSnapshot.getString("sharedUserId");
-                        // On récupère les notes des 2 utilisateurs (self + shared)
-                        fetchNotesFromFirestore(userId);
-                        if (sharedUserId != null && !sharedUserId.isEmpty() && !sharedUserId.equals(userId)) {
-                            fetchNotesFromFirestore(sharedUserId);
+                .addOnSuccessListener(querySnapshot -> {
+                    // Toujours récupérer les notes de l'utilisateur connecté
+                    fetchNotesFromFirestore(this, userId);
+
+                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                        for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                            String sharedUserId = doc.getString("sharedUserId");
+                            if (sharedUserId != null
+                                    && !sharedUserId.isEmpty()
+                                    && !sharedUserId.equals(userId)) {
+                                fetchNotesFromFirestore(this, sharedUserId);
+                            }
                         }
-                    } else {
-                        // Pas de partage configuré, on charge juste les notes de l'utilisateur connecté
-                        fetchNotesFromFirestore(userId);
                     }
                 })
                 .addOnFailureListener(e -> {
                     // Erreur Firestore, on charge au moins les notes de l'utilisateur connecté
-                    fetchNotesFromFirestore(userId);
+                    fetchNotesFromFirestore(this, userId);
+                    Log.e("Firestore", "Erreur lors de la récupération des partages", e);
                 });
+
     }
 
     private void startListeningNotes(String userId) {
@@ -436,6 +452,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         // Charger le dernier timestamp enregistré
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         Log.d(TAG, "lastSeenNoteTimestamp = " + lastSeenNoteTimestamp);
+
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        boolean isRemoteUser = currentUser != null && !userId.equals(currentUser.getUid());
 
         noteListener = firestore
                 .collection("users")
@@ -469,14 +488,16 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                     if (createdDate.after(lastSeenNoteTimestamp)) {
                                         Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
 
-                                        // Notification ici
-                                        onRemoteNoteAdded(doc);
+                                        if (isRemoteUser) {
+                                            // Notification seulement si l'utilisateur est distant
+                                            onRemoteNoteAdded(doc);
+                                        }
 
                                         // Mettre à jour lastSeenNoteTimestamp et sauvegarder
                                         lastSeenNoteTimestamp = createdDate;
                                         NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
                                     } else {
-                                        Log.d(TAG, "Note ajoutée mais timestamp plus ancien, pas de notif");
+                                        //Log.d(TAG, "Note ajoutée mais timestamp plus ancien, pas de notif");
                                     }
                                 } else {
                                     Log.w(TAG, "Note sans timestamp utilisable");
@@ -497,6 +518,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         saveRemoteNoteLocally(doc);
 
         // 2) Prépare et affiche la notification
+        NotificationHelper.showNoteNotification(
+                getApplicationContext(),
+                getApplicationContext().getString(R.string.new_note_from_distant),
+                doc.getString("title")
+        );
         /*String title = doc.getString("title");
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApplication.CHANNEL_ID)

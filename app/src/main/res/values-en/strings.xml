@@ -87,6 +87,9 @@
     <string name="delete_sharing_title">Delete Sharing</string>
     <string name="delete_sharing_summary">Remove the linked UID</string>
     <string name="uid_to_share_notes_with">Firebase UID to share your notes with</string>
+    <string name="notifications">Notifications</string>
+    <string name="enable_notifications">Enable notifications</string>
+    <string name="receive_notifications_from_app">Receive notifications from app</string>
 
     <string name="sharing_enabled_with">Sharing with : </string>
 

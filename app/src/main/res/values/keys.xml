@@ -7,5 +7,6 @@
     <string name="key_share_id" translatable="false">share_id</string>
     <string name="key_save_sharing" translatable="false">save_sharing</string>
     <string name="key_delete_sharing" translatable="false">delete_sharing</string>
+    <string name="key_notifications" translatable="false">notifications</string>
     <string name="key_theme_preference" translatable="false">theme_preference</string>
 </resources>
