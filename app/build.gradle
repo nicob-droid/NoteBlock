@@ -2,16 +2,30 @@ plugins {
     id 'com.android.application'
 }
 
+// Définir buildTime AVANT android { }
+def buildTime = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone("UTC"))
+def versionMajor = project.VERSION_MAJOR.toInteger()
+def versionMinor = project.VERSION_MINOR.toInteger()
+def versionPatch = project.VERSION_PATCH.toInteger()
+
 android {
     namespace 'com.example.cosmonote'
     compileSdk 34
+
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         applicationId "com.example.cosmonote"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+
+        versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
+        versionName "${versionMajor}.${versionMinor}.${versionPatch}"
+
+        // Injecte la date de build comme constante Java
+        buildConfigField "String", "BUILD_DATE", "\"${buildTime}\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

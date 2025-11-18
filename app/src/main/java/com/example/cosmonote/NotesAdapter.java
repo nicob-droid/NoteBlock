@@ -28,10 +28,12 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         this.listener = listener;
     }
 
-    public void setNotes(List<Note> notes) {
-        this.notes = notes;
+    public void setNotes(List<Note> newNotes) {
+        this.notes.clear();
+        this.notes.addAll(newNotes);
         notifyDataSetChanged();
     }
+
 
     public int getSelectedPosition() {
         return selectedPosition;

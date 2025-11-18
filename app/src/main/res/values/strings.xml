@@ -92,9 +92,11 @@
     <string name="receive_notifications_from_app">Recevoir des notifications de l\'application</string>
 
     <string name="sharing_enabled_with">Partage avec : </string>
+    <string name="app_version">Version</string>
 
     <!-- Catégorie -->
     <string name="category_appearance">Apparence</string>
+    <string name="about">A propos</string>
     <!-- Titre et résumé -->
     <string name="theme_title">Thème de l\'application</string>
     <string name="theme_summary">Choisissez clair, sombre ou automatique</string>

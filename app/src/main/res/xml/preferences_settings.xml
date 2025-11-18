@@ -66,6 +66,21 @@
             android:entryValues="@array/theme_values"
             android:defaultValue="auto" />
     </PreferenceCategory>
+    <PreferenceCategory
+        android:key="about_category"
+        android:title="@string/about">
+
+        <Preference
+            android:key="app_version"
+            android:title="@string/app_version"
+            android:summary="-"
+            android:enabled="false" />
+        <Preference
+            android:key="app_build_date"
+            android:title="Date de build"
+            android:summary="-"
+            android:enabled="false" />
+    </PreferenceCategory>
 
 
 </PreferenceScreen>

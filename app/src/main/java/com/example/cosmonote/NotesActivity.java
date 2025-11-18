@@ -68,7 +68,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private NotesAdapter adapter;
     private List<Note> notesList;
     private NoteDatabase db;
-    private ListenerRegistration noteListener;
+    //private ListenerRegistration noteListener;
+    private final List<ListenerRegistration> activeListeners = new ArrayList<>();
+
     private Date lastSeenNoteTimestamp;
 
 
@@ -141,8 +143,8 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
     private void loadNotes() {
         new Thread(() -> {
-            notesList = db.getAllNotes();
-            runOnUiThread(() -> adapter.setNotes(notesList));
+            List<Note> loaded = db.getAllNotes();
+            runOnUiThread(() -> adapter.setNotes(loaded));
         }).start();
     }
 
@@ -165,48 +167,53 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             }
         }
 
-        // Synchronise depuis Firestore pour récupérer toutes les notes (locales + partagées)
-        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (firebaseUser != null) {
-            String currentUserId = firebaseUser.getUid();
+        // Synchronisation Firestore seulement si aucun listener actif
+        if (activeListeners.isEmpty()) {
+            // Synchronise depuis Firestore pour récupérer toutes les notes (locales + partagées)
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (firebaseUser != null) {
+                String currentUserId = firebaseUser.getUid();
 
-            // 1) écoute pour tes propres notes
-            startListeningNotes(firebaseUser.getUid());
+                // 1) écoute pour tes propres notes
+                startListeningNotes(currentUserId);
 
-            // 2) Récupère le sharedUserId depuis Firestore, puis écoute-le
-            FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(currentUserId)
-                    .collection("shared_users")
-                    .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                                String sharedUserId = doc.getString("sharedUserId");
-                                if (sharedUserId != null
-                                        && !sharedUserId.isEmpty()
-                                        && !sharedUserId.equals(currentUserId)) {
-                                    startListeningNotes(sharedUserId);
+                // 2) Récupère le sharedUserId depuis Firestore, puis écoute-le
+                FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(currentUserId)
+                        .collection("shared_users")
+                        .get()
+                        .addOnSuccessListener(querySnapshot -> {
+                            if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                                for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                    String sharedUserId = doc.getString("sharedUserId");
+                                    if (sharedUserId != null
+                                            && !sharedUserId.isEmpty()
+                                            && !sharedUserId.equals(currentUserId)) {
+                                        try {
+                                            startListeningNotes(sharedUserId);
+                                        } catch (Exception e) {
+                                            Log.w(TAG, "Impossible de démarrer le listener pour sharedUserId: "
+                                                    + sharedUserId, e);
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.w(TAG, "Impossible de récupérer sharedUserId", e);
-                    });
-
-        } else {
-            // Tu peux rester en local ici
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.w(TAG, "Impossible de récupérer sharedUserId", e);
+                        });
+            }
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (noteListener != null) {
-            noteListener.remove();
-            noteListener = null;
+        for (ListenerRegistration l : activeListeners) {
+            l.remove();
         }
+        activeListeners.clear();
     }
 
     @Override
@@ -456,56 +463,61 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         boolean isRemoteUser = currentUser != null && !userId.equals(currentUser.getUid());
 
-        noteListener = firestore
-                .collection("users")
-                .document(userId)
-                .collection("notes")
-                .addSnapshotListener((snapshots, error) -> {
-                    if (error != null) {
-                        Log.w(TAG, "Listen failed.", error);
-                        return;
-                    }
-                    if (snapshots != null) {
-                        for (DocumentChange dc : snapshots.getDocumentChanges()) {
-                            if (dc.getType() == DocumentChange.Type.ADDED) {
-                                DocumentSnapshot doc = dc.getDocument();
+        try {
+            ListenerRegistration listener = firestore
+                    .collection("users")
+                    .document(userId)
+                    .collection("notes")
+                    .addSnapshotListener((snapshots, error) -> {
+                        if (error != null) {
+                            Log.w(TAG, "Listen failed.", error);
+                            return;
+                        }
+                        if (snapshots != null) {
+                            for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                                if (dc.getType() == DocumentChange.Type.ADDED) {
+                                    DocumentSnapshot doc = dc.getDocument();
 
-                                // Extraction robuste du timestamp
-                                Object timestampObj = doc.get("timestamp");
-                                Date createdDate = null;
+                                    // Extraction robuste du timestamp
+                                    Object timestampObj = doc.get("timestamp");
+                                    Date createdDate = null;
 
-                                if (timestampObj instanceof com.google.firebase.Timestamp) {
-                                    createdDate = ((com.google.firebase.Timestamp) timestampObj).toDate();
-                                } else if (timestampObj instanceof Long) {
-                                    createdDate = new Date((Long) timestampObj);
-                                } else if (timestampObj instanceof Double) {
-                                    createdDate = new Date(((Double) timestampObj).longValue());
-                                } else {
-                                    Log.w(TAG, "Format de timestamp non reconnu : " + timestampObj);
-                                }
-
-                                if (createdDate != null) {
-                                    if (createdDate.after(lastSeenNoteTimestamp)) {
-                                        Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
-
-                                        if (isRemoteUser) {
-                                            // Notification seulement si l'utilisateur est distant
-                                            onRemoteNoteAdded(doc);
-                                        }
-
-                                        // Mettre à jour lastSeenNoteTimestamp et sauvegarder
-                                        lastSeenNoteTimestamp = createdDate;
-                                        NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
+                                    if (timestampObj instanceof com.google.firebase.Timestamp) {
+                                        createdDate = ((com.google.firebase.Timestamp) timestampObj).toDate();
+                                    } else if (timestampObj instanceof Long) {
+                                        createdDate = new Date((Long) timestampObj);
+                                    } else if (timestampObj instanceof Double) {
+                                        createdDate = new Date(((Double) timestampObj).longValue());
                                     } else {
-                                        //Log.d(TAG, "Note ajoutée mais timestamp plus ancien, pas de notif");
+                                        Log.w(TAG, "Format de timestamp non reconnu : " + timestampObj);
                                     }
-                                } else {
-                                    Log.w(TAG, "Note sans timestamp utilisable");
+
+                                    if (createdDate != null) {
+                                        if (createdDate.after(lastSeenNoteTimestamp)) {
+                                            Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
+
+                                            if (isRemoteUser) {
+                                                // Notification seulement si l'utilisateur est distant
+                                                onRemoteNoteAdded(doc);
+                                            }
+
+                                            // Mettre à jour lastSeenNoteTimestamp et sauvegarder
+                                            lastSeenNoteTimestamp = createdDate;
+                                            NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
+                                        } else {
+                                            //Log.d(TAG, "Note ajoutée mais timestamp plus ancien, pas de notif");
+                                        }
+                                    } else {
+                                        Log.w(TAG, "Note sans timestamp utilisable");
+                                    }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+            activeListeners.add(listener);
+        } catch (Exception e) {
+            Log.w(TAG, "Impossible de démarrer le listener pour userId: " + userId, e);
+        }
     }
 
 
