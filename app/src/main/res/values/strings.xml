@@ -100,6 +100,15 @@
 
     <!-- Catégorie -->
     <string name="category_appearance">Apparence</string>
+    <string name="category_security">Sécurité</string>
+    <string name="enable_pin">Activer le code PIN</string>
+    <string name="enable_pin_summary">Protéger l\'accès à l\'application par un code PIN</string>
+    <string name="change_pin_title">Changer le code PIN</string>
+    <string name="change_pin_summary">Modifier votre code PIN actuel</string>
+    <string name="pin_activated">Code PIN activé</string>
+    <string name="pin_deactivated">Code PIN désactivé</string>
+    <string name="set_pin_title">Définir un code PIN</string>
+    <string name="enter_pin_message">Entrez un code PIN à 4 chiffres</string>
     <string name="about">A propos</string>
     <!-- Titre et résumé -->
     <string name="theme_title">Thème de l\'application</string>

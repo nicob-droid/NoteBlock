@@ -20,6 +20,10 @@
     <string name="incorrect_old_pin">Incorrect old PIN</string>
     <string name="pin_changed_success">PIN modified with success</string>
     <string name="add_note">"Add note"</string>
+    <string name="delete_all_notes">Remove all notes</string>
+    <string name="delete_all_notes_confirmation_title">Remove all</string>
+    <string name="delete_all_notes_confirmation_message">Are you sure ?</string>
+    <string name="all_notes_deleted">All notes have been removed</string>
     <string name="title">Title</string>
     <string name="note_content">Note content</string>
     <string name="save">Save</string>
@@ -95,6 +99,15 @@
     <string name="app_version">Version</string>
 
     <string name="category_appearance">Appearance</string>
+    <string name="category_security">Security</string>
+    <string name="enable_pin">Enable PIN code</string>
+    <string name="enable_pin_summary">Protect app access with a PIN code</string>
+    <string name="change_pin_title">Change PIN code</string>
+    <string name="change_pin_summary">Change your current PIN code</string>
+    <string name="pin_activated">PIN code activated</string>
+    <string name="pin_deactivated">PIN code deactivated</string>
+    <string name="set_pin_title">Set a PIN code</string>
+    <string name="enter_pin_message">Enter a 4-digit PIN code</string>
     <string name="about">About</string>
     <string name="theme_title">App theme</string>
     <string name="theme_summary">Choose light, dark or automatic</string>

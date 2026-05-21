@@ -22,6 +22,13 @@ public class MainActivity extends BaseActivity  {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Si le PIN n'est pas activé, aller directement aux notes
+        if (!NotePreferences.isPinEnabled(this)) {
+            openNotesActivity();
+            return;
+        }
+
         setContentView(R.layout.activity_main);
 
         pinInput = findViewById(R.id.pin_input);

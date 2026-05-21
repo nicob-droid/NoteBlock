@@ -11,6 +11,7 @@ public class NotePreferences {
     private static final String PREFS_NAME = "NoteLockPrefs";
     private static final String KEY_LAST_SEEN_TIMESTAMP = "last_seen_timestamp";
     private static final String KEY_PIN_HASH = "pin_hash";
+    private static final String KEY_PIN_ENABLED = "pin_enabled";
 
     public static void saveLastSeenTimestamp(Context context, Date timestamp) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -35,7 +36,21 @@ public class NotePreferences {
 
     public static String loadStoredPinHash(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String storedPinHash = prefs.getString(KEY_PIN_HASH, null);
-        return storedPinHash;
+        return prefs.getString(KEY_PIN_HASH, null);
+    }
+
+    public static boolean isPinEnabled(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getBoolean(KEY_PIN_ENABLED, false);
+    }
+
+    public static void setPinEnabled(Context context, boolean enabled) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_PIN_ENABLED, enabled).apply();
+    }
+
+    public static void clearPinHash(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().remove(KEY_PIN_HASH).apply();
     }
 }

@@ -55,6 +55,23 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:key="security_category"
+        android:title="@string/category_security">
+
+        <SwitchPreferenceCompat
+            android:key="@string/key_pin_enabled"
+            android:title="@string/enable_pin"
+            android:summary="@string/enable_pin_summary"
+            android:defaultValue="false" />
+
+        <Preference
+            android:key="@string/key_change_pin"
+            android:title="@string/change_pin_title"
+            android:summary="@string/change_pin_summary"
+            android:dependency="@string/key_pin_enabled" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="appearance_category"
         android:title="@string/category_appearance">
 

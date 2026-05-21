@@ -17,6 +17,8 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 
 import com.example.cosmonote.R;
+import com.example.cosmonote.Utils.HashUtils;
+import com.example.cosmonote.Utils.NotePreferences;
 import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -28,6 +30,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.text.InputType;
+import android.widget.EditText;
+
 public class SettingsFragment extends PreferenceFragmentCompat implements LoginDialogFragment.LoginSuccessListener {
 
     private FirebaseAuth auth;
@@ -35,6 +40,8 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
     private Preference registerPref, loginPref, logoutPref;
     private Preference shareIdPref, saveSharingPref, deleteSharingPref;
     private SwitchPreferenceCompat notificationPref;
+    private SwitchPreferenceCompat pinEnabledPref;
+    private Preference changePinPref;
     private EditTextPreference sharedUserIdPref;
     private PreferenceCategory sharingNotesCategory;
 
@@ -168,6 +175,39 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             });
         }
 
+        // --- Sécurité : PIN ---
+        pinEnabledPref = findPreference(getString(R.string.key_pin_enabled));
+        changePinPref = findPreference(getString(R.string.key_change_pin));
+
+        if (pinEnabledPref != null) {
+            // Synchroniser l'état du switch avec les préférences réelles
+            pinEnabledPref.setChecked(NotePreferences.isPinEnabled(requireContext()));
+
+            pinEnabledPref.setOnPreferenceChangeListener((preference, newValue) -> {
+                boolean enabled = (Boolean) newValue;
+                if (enabled) {
+                    // Demander de créer un PIN
+                    showSetPinDialog();
+                    return false; // On ne change le switch que quand le PIN est défini
+                } else {
+                    // Désactiver le PIN
+                    NotePreferences.setPinEnabled(requireContext(), false);
+                    NotePreferences.clearPinHash(requireContext());
+                    Toast.makeText(getContext(), getString(R.string.pin_deactivated), Toast.LENGTH_SHORT).show();
+                    if (changePinPref != null) changePinPref.setEnabled(false);
+                    return true;
+                }
+            });
+        }
+
+        if (changePinPref != null) {
+            changePinPref.setEnabled(NotePreferences.isPinEnabled(requireContext()));
+            changePinPref.setOnPreferenceClickListener(preference -> {
+                showSetPinDialog();
+                return true;
+            });
+        }
+
         if (versionPref != null) {
             try {
                 PackageInfo pInfo = requireContext().getPackageManager()
@@ -197,6 +237,33 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         } else {
             NotificationHelper.cancelAllNotifications(requireContext());
         }
+    }
+
+    private void showSetPinDialog() {
+        EditText input = new EditText(requireContext());
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        input.setHint(getString(R.string.enter_4_digits));
+        input.setMaxLines(1);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.set_pin_title))
+                .setMessage(getString(R.string.enter_pin_message))
+                .setView(input)
+                .setPositiveButton(getString(R.string.save), (dialog, which) -> {
+                    String pin = input.getText().toString().trim();
+                    if (pin.length() == 4) {
+                        String hash = HashUtils.sha256Hex(pin);
+                        NotePreferences.saveStoredPinHash(requireContext(), hash);
+                        NotePreferences.setPinEnabled(requireContext(), true);
+                        Toast.makeText(getContext(), getString(R.string.pin_activated), Toast.LENGTH_SHORT).show();
+                        if (pinEnabledPref != null) pinEnabledPref.setChecked(true);
+                        if (changePinPref != null) changePinPref.setEnabled(true);
+                    } else {
+                        Toast.makeText(getContext(), getString(R.string.pin_must_be_4_digits), Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton(getString(R.string.cancel), null)
+                .show();
     }
 
 

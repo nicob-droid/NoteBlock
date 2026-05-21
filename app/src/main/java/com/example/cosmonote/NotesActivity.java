@@ -55,7 +55,9 @@ import com.google.firebase.firestore.QuerySnapshot;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteClickListener {
     private static final String TAG = "NotesActivity";
@@ -261,7 +263,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             List<Note> decryptedNotes = new ArrayList<>();
 
             for (Note note : encryptedNotes) {
-                Note decryptedNote = new Note(note.getId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
+                Note decryptedNote = new Note(note.getId(), note.getFirebaseDocId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
                 decryptedNotes.add(decryptedNote);
             }
 
@@ -358,8 +360,28 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
+            // Synchroniser la couleur vers Firestore
+            syncNoteColorToFirestore(note);
             runOnUiThread(this::loadNotes);
         }).start();
+    }
+
+    private void syncNoteColorToFirestore(Note note) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null || note.getFirebaseDocId() == null) return;
+
+        String userId = currentUser.getUid();
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("color", note.getColor());
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(userId)
+                .collection("notes")
+                .document(note.getFirebaseDocId())
+                .update(updates)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Couleur synchronisée Firestore"))
+                .addOnFailureListener(e -> Log.e(TAG, "Erreur sync couleur Firestore", e));
     }
 
     private void updateItemPositionsInDatabase() {
@@ -414,23 +436,51 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         if (querySnapshot != null) {
                             for (QueryDocumentSnapshot document : task.getResult()) {
                                 String firebaseDocId = document.getString("firebaseDocId");
-                                if (firebaseDocId == null) {
-                                    firebaseDocId = document.getId();
-                                }
 
                                 String title = document.getString("title");
                                 String content = document.getString("content");
-                                int color = document.getLong("color").intValue();
-                                int position = document.getLong("position").intValue();
+                                Long colorObj = document.getLong("color");
+                                int color = (colorObj != null) ? colorObj.intValue() : 0;
+                                Long positionObj = document.getLong("position");
+                                int position = (positionObj != null) ? positionObj.intValue() : 0;
 
                                 try {
-                                    Note note = new Note(0, firebaseDocId, title, content, color, position);
+                                    // Chercher si la note existe déjà en local
+                                    Note localNote = null;
 
-                                    // Chercher si la note existe déjà en local par firebaseDocId
-                                    Note localNote = db.getNoteByFirebaseDocId(firebaseDocId);
-                                    boolean isNew = (localNote == null);
+                                    if (firebaseDocId != null) {
+                                        localNote = db.getNoteByFirebaseDocId(firebaseDocId);
+                                    }
 
-                                    if (isNew) {
+                                    // Fallback : chercher par ancien ID numérique (notes pré-migration)
+                                    if (localNote == null) {
+                                        Long idObj = document.getLong("id");
+                                        if (idObj != null) {
+                                            localNote = db.getNoteById(idObj);
+                                        }
+                                    }
+
+                                    if (localNote != null) {
+                                        // La note existe déjà localement
+                                        // Si Firestore n'a pas de firebaseDocId, on le pousse
+                                        if (firebaseDocId == null && localNote.getFirebaseDocId() != null) {
+                                            pushFirebaseDocIdToFirestore(userId, document.getId(), localNote.getFirebaseDocId(), localNote);
+                                        }
+                                        // Mettre à jour localement seulement si le contenu distant est différent
+                                        // mais préserver la couleur locale si Firestore a une couleur par défaut
+                                        if (!localNote.getTitle().equals(title) || !localNote.getContent().equals(content)) {
+                                            // Contenu différent sur Firestore → mettre à jour local
+                                            String docId = (firebaseDocId != null) ? firebaseDocId : localNote.getFirebaseDocId();
+                                            Note updated = new Note(localNote.getId(), docId, title, content,
+                                                    localNote.getColor(), localNote.getPosition());
+                                            db.insertOrUpdateNote(updated);
+                                        }
+                                    } else {
+                                        // Nouvelle note (venant d'un autre appareil ou utilisateur partagé)
+                                        if (firebaseDocId == null) {
+                                            firebaseDocId = document.getId();
+                                        }
+                                        Note note = new Note(0, firebaseDocId, title, content, color, position);
                                         db.insertOrUpdateNote(note);
 
                                         if (isRemoteUser) {
@@ -440,19 +490,54 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                                     note.getTitle()
                                             );
                                         }
-                                    } else if (!localNote.equals(note)) {
-                                        db.insertOrUpdateNote(note);
                                     }
-
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
                             }
+                            // Rafraîchir l'affichage après la synchro
+                            runOnUiThread(this::loadNotesFromLocalDatabase);
                         } else {
                             Log.w(TAG, "Erreur fetch Firestore", task.getException());
                         }
                     }
                 });
+    }
+
+    /**
+     * Pousse le firebaseDocId local vers Firestore pour les notes créées avant la migration.
+     * Migre aussi le document Firestore vers le nouveau document ID = firebaseDocId.
+     */
+    private void pushFirebaseDocIdToFirestore(String userId, String oldDocId, String firebaseDocId, Note localNote) {
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+
+        Map<String, Object> noteData = new HashMap<>();
+        noteData.put("firebaseDocId", firebaseDocId);
+        noteData.put("id", localNote.getId());
+        noteData.put("title", localNote.getTitle());
+        noteData.put("content", localNote.getContent());
+        noteData.put("color", localNote.getColor());
+        noteData.put("position", localNote.getPosition());
+        noteData.put("timestamp", new com.google.firebase.Timestamp(new java.util.Date(localNote.getTimestamp())));
+
+        // Créer le nouveau document avec le firebaseDocId comme clé
+        firestore.collection("users")
+                .document(userId)
+                .collection("notes")
+                .document(firebaseDocId)
+                .set(noteData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Note migrée vers Firestore avec firebaseDocId=" + firebaseDocId);
+                    // Supprimer l'ancien document (ancien ID numérique)
+                    if (!oldDocId.equals(firebaseDocId)) {
+                        firestore.collection("users")
+                                .document(userId)
+                                .collection("notes")
+                                .document(oldDocId)
+                                .delete();
+                    }
+                })
+                .addOnFailureListener(e -> Log.e(TAG, "Erreur migration Firestore", e));
     }
 
 
