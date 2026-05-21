@@ -105,6 +105,17 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             startActivity(intent);
         });
 
+        // Init du bouton supprimer tout
+        FloatingActionButton fabDeleteAll = findViewById(R.id.fab_delete_all);
+        fabDeleteAll.setOnClickListener(v -> {
+            new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.delete_all_notes_confirmation_title))
+                    .setMessage(getString(R.string.delete_all_notes_confirmation_message))
+                    .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
+                    .setNegativeButton(getString(R.string.no), null)
+                    .show();
+        });
+
         // Ajouter un ItemTouchHelper pour gérer le déplacement des notes
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
                 ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
@@ -174,7 +185,10 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             if (firebaseUser != null) {
                 String currentUserId = firebaseUser.getUid();
 
-                // 1) écoute pour tes propres notes
+                // Sync propres notes depuis Firestore (multi-device)
+                fetchNotesFromFirestore(this, currentUserId);
+
+                // Écoute en temps réel les notes des utilisateurs partagés uniquement
                 startListeningNotes(currentUserId);
 
                 // 2) Récupère le sharedUserId depuis Firestore, puis écoute-le
@@ -359,6 +373,32 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }).start();
     }
 
+    private void deleteAllNotes() {
+        new Thread(() -> {
+            db.deleteAllNotes();
+            // Supprimer aussi sur Firestore si connecté
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (currentUser != null) {
+                String userId = currentUser.getUid();
+                FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(userId)
+                        .collection("notes")
+                        .get()
+                        .addOnSuccessListener(querySnapshot -> {
+                            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                doc.getReference().delete();
+                            }
+                        });
+            }
+            runOnUiThread(() -> {
+                notesList.clear();
+                adapter.notifyDataSetChanged();
+                Toast.makeText(this, getString(R.string.all_notes_deleted), Toast.LENGTH_SHORT).show();
+            });
+        }).start();
+    }
+
     private void fetchNotesFromFirestore(Context context, String userId) {
         FirebaseFirestore firebase = FirebaseFirestore.getInstance();
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -373,17 +413,21 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         QuerySnapshot querySnapshot = task.getResult();
                         if (querySnapshot != null) {
                             for (QueryDocumentSnapshot document : task.getResult()) {
-                                long id = document.getLong("id");
+                                String firebaseDocId = document.getString("firebaseDocId");
+                                if (firebaseDocId == null) {
+                                    firebaseDocId = document.getId();
+                                }
+
                                 String title = document.getString("title");
                                 String content = document.getString("content");
                                 int color = document.getLong("color").intValue();
                                 int position = document.getLong("position").intValue();
 
                                 try {
-                                    Note note = new Note(id, title, content, color, position);
+                                    Note note = new Note(0, firebaseDocId, title, content, color, position);
 
-                                    // Chercher si la note existe déjà en local
-                                    Note localNote = db.getNoteById(id);
+                                    // Chercher si la note existe déjà en local par firebaseDocId
+                                    Note localNote = db.getNoteByFirebaseDocId(firebaseDocId);
                                     boolean isNew = (localNote == null);
 
                                     if (isNew) {
@@ -463,6 +507,12 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         boolean isRemoteUser = currentUser != null && !userId.equals(currentUser.getUid());
 
+        // Ne pas écouter ses propres notes (elles sont déjà sauvées localement à la création)
+        if (!isRemoteUser) {
+            Log.d(TAG, "Skipping listener for own user notes (already saved locally)");
+            return;
+        }
+
         try {
             ListenerRegistration listener = firestore
                     .collection("users")
@@ -477,6 +527,13 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                             for (DocumentChange dc : snapshots.getDocumentChanges()) {
                                 if (dc.getType() == DocumentChange.Type.ADDED) {
                                     DocumentSnapshot doc = dc.getDocument();
+
+                                    // Vérifier si la note existe déjà localement via firebaseDocId
+                                    String firebaseDocId = doc.getString("firebaseDocId");
+                                    if (firebaseDocId != null && db.noteExistsByFirebaseDocId(firebaseDocId)) {
+                                        Log.d(TAG, "Note déjà présente localement, skip: " + firebaseDocId);
+                                        continue;
+                                    }
 
                                     // Extraction robuste du timestamp
                                     Object timestampObj = doc.get("timestamp");
@@ -496,16 +553,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         if (createdDate.after(lastSeenNoteTimestamp)) {
                                             Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
 
-                                            if (isRemoteUser) {
-                                                // Notification seulement si l'utilisateur est distant
-                                                onRemoteNoteAdded(doc);
-                                            }
+                                            onRemoteNoteAdded(doc);
 
                                             // Mettre à jour lastSeenNoteTimestamp et sauvegarder
                                             lastSeenNoteTimestamp = createdDate;
                                             NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
-                                        } else {
-                                            //Log.d(TAG, "Note ajoutée mais timestamp plus ancien, pas de notif");
                                         }
                                     } else {
                                         Log.w(TAG, "Note sans timestamp utilisable");
@@ -566,26 +618,25 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
      * la note dans ta base locale, puis rafraîchit l'affichage.
      */
     private void saveRemoteNoteLocally(DocumentSnapshot doc) {
-        Long idObj = doc.getLong("id");
-        if (idObj == null) {
-            Log.e(TAG, "Document missing 'id' field");
-            return; // ou gérer autrement
+        String firebaseDocId = doc.getString("firebaseDocId");
+        if (firebaseDocId == null) {
+            // Fallback: utiliser l'ID du document Firestore
+            firebaseDocId = doc.getId();
         }
-        long id = idObj;
 
         String title   = doc.getString("title");
         String content = doc.getString("content");
 
         Long colorObj = doc.getLong("color");
-        if (colorObj == null) colorObj = 0L; // valeur par défaut si absent
+        if (colorObj == null) colorObj = 0L;
         int color = colorObj.intValue();
 
         Long positionObj = doc.getLong("position");
-        if (positionObj == null) positionObj = 0L; // valeur par défaut si absent
+        if (positionObj == null) positionObj = 0L;
         int position = positionObj.intValue();
 
         try {
-            Note note = new Note(id, title, content, color, position);
+            Note note = new Note(0, firebaseDocId, title, content, color, position);
             db.insertOrUpdateNote(note);
 
             // Recharge la liste dans l'UI

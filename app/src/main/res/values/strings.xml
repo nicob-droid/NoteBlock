@@ -21,6 +21,10 @@
     <string name="incorrect_old_pin">Ancien PIN incorrect</string>
     <string name="pin_changed_success">PIN modifié avec succès</string>
     <string name="add_note">"Ajouter une note"</string>
+    <string name="delete_all_notes">Supprimer toutes les notes</string>
+    <string name="delete_all_notes_confirmation_title">Tout supprimer</string>
+    <string name="delete_all_notes_confirmation_message">Êtes-vous sûr de vouloir supprimer toutes les notes ?</string>
+    <string name="all_notes_deleted">Toutes les notes ont été supprimées</string>
     <string name="title">Titre</string>
     <string name="note_content">Contenu de la note</string>
     <string name="save">Sauvegarder</string>

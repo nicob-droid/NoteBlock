@@ -50,6 +50,7 @@ public class EditNoteActivity extends BaseActivity  {
     private NoteDatabase db;
     private long noteId;
     private Note note;
+    private String firebaseDocId; // UUID unique pour Firestore
     private int selectedPosition = 0;  // par défaut première position
     private boolean isNoteDeleted = false;
 
@@ -108,7 +109,8 @@ public class EditNoteActivity extends BaseActivity  {
         if (noteId != -1) {
             note = db.getNoteById(noteId);
             if (note != null) {
-                // remplis les champs de l’UI
+                firebaseDocId = note.getFirebaseDocId();
+                // remplis les champs de l'UI
                 titleInput.setText(note.getTitle());
                 contentInput.setText(note.getContent());
             }
@@ -147,7 +149,7 @@ public class EditNoteActivity extends BaseActivity  {
             db.collection("users")
                     .document(userId)
                     .collection("notes")
-                    .document(String.valueOf(note.getId()))
+                    .document(note.getFirebaseDocId())
                     .delete()
                     .addOnSuccessListener(aVoid -> {
                         Log.d("DeleteNote", "Note supprimée de Firestore");
@@ -189,9 +191,10 @@ public class EditNoteActivity extends BaseActivity  {
 
         try {
             if (noteId == -1) {
-                // Création : insère et récupère l'id généré
-                id = db.insertNote(title, content, selectedColor, position);
-                Log.i(TAG, "Note créée avec id = " + id);
+                // Création : génère un UUID unique pour cette note
+                firebaseDocId = java.util.UUID.randomUUID().toString();
+                id = db.insertNote(firebaseDocId, title, content, selectedColor, position);
+                Log.i(TAG, "Note créée avec id = " + id + ", firebaseDocId = " + firebaseDocId);
             } else {
                 // Modification : update, id reste le même
                 db.updateNote(noteId, title, content, selectedColor, position);
@@ -203,7 +206,7 @@ public class EditNoteActivity extends BaseActivity  {
             long timestamp = System.currentTimeMillis();
 
             // Construire Note avec l'id correct
-            Note note = new Note((int) id, title, content, selectedColor, position, timestamp);
+            Note note = new Note((int) id, firebaseDocId, title, content, selectedColor, position, timestamp);
 
             // Synchroniser Firestore : timestamp seulement à la création
             if(!isNoteDeleted) {
@@ -244,9 +247,10 @@ public class EditNoteActivity extends BaseActivity  {
         DocumentReference docRef = firestore.collection("users")
                 .document(userId)
                 .collection("notes")
-                .document(String.valueOf(note.getId()));
+                .document(note.getFirebaseDocId());
 
         Map<String, Object> noteData = new HashMap<>();
+        noteData.put("firebaseDocId", note.getFirebaseDocId());
         noteData.put("id", note.getId());
         noteData.put("title", note.getTitle());
         noteData.put("content", note.getContent());
@@ -256,10 +260,7 @@ public class EditNoteActivity extends BaseActivity  {
 
         docRef.set(noteData)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Note synchronisée dans Firestore id=" + note.getId());
-                    if (isNew) {
-                        //NotificationHelper.showNoteNotification(this, getString(R.string.new_note_from_distant), note.getTitle());
-                    }
+                    Log.d(TAG, "Note synchronisée dans Firestore firebaseDocId=" + note.getFirebaseDocId());
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Erreur lors de la sync Firestore", e);
