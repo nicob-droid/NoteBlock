@@ -19,7 +19,7 @@ import com.cosmonote.app.R;
 
 public class NotificationHelper {
     private static final String TAG = "NotificationHelper";
-    private static final String CHANNEL_ID = "note_channel";
+    private static final String CHANNEL_ID = "note_updates";
 
     public static boolean areNotificationsEnabled(Context context) {
         NotificationManagerCompat manager = NotificationManagerCompat.from(context);

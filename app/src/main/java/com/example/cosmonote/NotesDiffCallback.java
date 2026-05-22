@@ -35,6 +35,7 @@ public class NotesDiffCallback extends DiffUtil.Callback {
         Note oldNote = oldList.get(oldItemPosition);
         Note newNote = newList.get(newItemPosition);
         return oldNote.getTitle().equals(newNote.getTitle()) &&
-                oldNote.getContent().equals(newNote.getContent());
+                oldNote.getContent().equals(newNote.getContent()) &&
+                oldNote.getColor() == newNote.getColor();
     }
 }

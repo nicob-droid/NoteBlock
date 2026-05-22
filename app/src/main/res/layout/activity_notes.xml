@@ -22,6 +22,8 @@
         android:layout_height="wrap_content"
         android:contentDescription="@string/delete_all_notes"
         android:src="@android:drawable/ic_menu_delete"
+        app:backgroundTint="#F44336"
+        app:tint="@android:color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/fab_add_note"
         android:layout_margin="16dp" />

@@ -346,19 +346,27 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
     private void syncNoteColorToFirestore(Note note) {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser == null || note.getFirebaseDocId() == null) return;
+        if (currentUser == null || note.getFirebaseDocId() == null) {
+            Log.w(TAG, "syncNoteColorToFirestore: user=" + currentUser + ", docId=" + (note != null ? note.getFirebaseDocId() : "null"));
+            return;
+        }
 
         String userId = currentUser.getUid();
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("color", note.getColor());
+        Map<String, Object> noteData = new HashMap<>();
+        noteData.put("firebaseDocId", note.getFirebaseDocId());
+        noteData.put("title", note.getTitle());
+        noteData.put("content", note.getContent());
+        noteData.put("color", note.getColor());
+        noteData.put("position", note.getPosition());
+        noteData.put("timestamp", new com.google.firebase.Timestamp(new java.util.Date()));
 
         FirebaseFirestore.getInstance()
                 .collection("users")
                 .document(userId)
                 .collection("notes")
                 .document(note.getFirebaseDocId())
-                .update(updates)
-                .addOnSuccessListener(aVoid -> Log.d(TAG, "Couleur synchronisée Firestore"))
+                .set(noteData, com.google.firebase.firestore.SetOptions.merge())
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Couleur synchronisée Firestore: " + note.getColor()))
                 .addOnFailureListener(e -> Log.e(TAG, "Erreur sync couleur Firestore", e));
     }
 
@@ -440,17 +448,17 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
                                     if (localNote != null) {
                                         // La note existe déjà localement
-                                        // Si Firestore n'a pas de firebaseDocId, on le pousse
                                         if (firebaseDocId == null && localNote.getFirebaseDocId() != null) {
                                             pushFirebaseDocIdToFirestore(userId, document.getId(), localNote.getFirebaseDocId(), localNote);
                                         }
-                                        // Mettre à jour localement seulement si le contenu distant est différent
-                                        // mais préserver la couleur locale si Firestore a une couleur par défaut
-                                        if (!localNote.getTitle().equals(title) || !localNote.getContent().equals(content)) {
-                                            // Contenu différent sur Firestore → mettre à jour local
-                                            String docId = (firebaseDocId != null) ? firebaseDocId : localNote.getFirebaseDocId();
+                                        // Mettre à jour si contenu OU couleur différents
+                                        String docId = (firebaseDocId != null) ? firebaseDocId : localNote.getFirebaseDocId();
+                                        boolean contentChanged = !localNote.getTitle().equals(title) || !localNote.getContent().equals(content);
+                                        boolean colorChanged = (isRemoteUser && localNote.getColor() != color);
+                                        if (contentChanged || colorChanged) {
+                                            int finalColor = isRemoteUser ? color : localNote.getColor();
                                             Note updated = new Note(localNote.getId(), docId, title, content,
-                                                    localNote.getColor(), localNote.getPosition());
+                                                    finalColor, localNote.getPosition());
                                             db.insertOrUpdateNote(updated);
                                         }
                                     } else {
@@ -546,43 +554,62 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         }
                         if (snapshots != null) {
                             for (DocumentChange dc : snapshots.getDocumentChanges()) {
-                                if (dc.getType() == DocumentChange.Type.ADDED) {
-                                    DocumentSnapshot doc = dc.getDocument();
+                                DocumentSnapshot doc = dc.getDocument();
+                                String firebaseDocId = doc.getString("firebaseDocId");
+                                if (firebaseDocId == null) firebaseDocId = doc.getId();
 
-                                    // Vérifier si la note existe déjà localement via firebaseDocId
-                                    String firebaseDocId = doc.getString("firebaseDocId");
-                                    if (firebaseDocId != null && db.noteExistsByFirebaseDocId(firebaseDocId)) {
-                                        Log.d(TAG, "Note déjà présente localement, skip: " + firebaseDocId);
-                                        continue;
-                                    }
-
-                                    // Extraction robuste du timestamp
-                                    Object timestampObj = doc.get("timestamp");
-                                    Date createdDate = null;
-
-                                    if (timestampObj instanceof com.google.firebase.Timestamp) {
-                                        createdDate = ((com.google.firebase.Timestamp) timestampObj).toDate();
-                                    } else if (timestampObj instanceof Long) {
-                                        createdDate = new Date((Long) timestampObj);
-                                    } else if (timestampObj instanceof Double) {
-                                        createdDate = new Date(((Double) timestampObj).longValue());
-                                    } else {
-                                        Log.w(TAG, "Format de timestamp non reconnu : " + timestampObj);
-                                    }
-
-                                    if (createdDate != null) {
-                                        if (createdDate.after(lastSeenNoteTimestamp)) {
-                                            Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
-
-                                            onRemoteNoteAdded(doc);
-
-                                            // Mettre à jour lastSeenNoteTimestamp et sauvegarder
-                                            lastSeenNoteTimestamp = createdDate;
-                                            NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
+                                switch (dc.getType()) {
+                                    case ADDED:
+                                        // Vérifier si la note existe déjà localement
+                                        if (db.noteExistsByFirebaseDocId(firebaseDocId)) {
+                                            Log.d(TAG, "Note déjà présente localement, skip: " + firebaseDocId);
+                                            break;
                                         }
-                                    } else {
-                                        Log.w(TAG, "Note sans timestamp utilisable");
-                                    }
+
+                                        // Extraction robuste du timestamp
+                                        Object timestampObj = doc.get("timestamp");
+                                        Date createdDate = null;
+
+                                        if (timestampObj instanceof com.google.firebase.Timestamp) {
+                                            createdDate = ((com.google.firebase.Timestamp) timestampObj).toDate();
+                                        } else if (timestampObj instanceof Long) {
+                                            createdDate = new Date((Long) timestampObj);
+                                        } else if (timestampObj instanceof Double) {
+                                            createdDate = new Date(((Double) timestampObj).longValue());
+                                        } else {
+                                            Log.w(TAG, "Format de timestamp non reconnu : " + timestampObj);
+                                        }
+
+                                        if (createdDate != null) {
+                                            if (createdDate.after(lastSeenNoteTimestamp)) {
+                                                Log.d(TAG, "Nouvelle note détectée avec timestamp récent : " + createdDate);
+                                                onRemoteNoteAdded(doc);
+                                                lastSeenNoteTimestamp = createdDate;
+                                                NotePreferences.saveLastSeenTimestamp(this, lastSeenNoteTimestamp);
+                                            }
+                                        } else {
+                                            Log.w(TAG, "Note sans timestamp utilisable");
+                                        }
+                                        break;
+
+                                    case MODIFIED:
+                                        // Mettre à jour la note locale (couleur, contenu, etc.)
+                                        updateRemoteNoteLocally(doc, firebaseDocId);
+                                        NotificationHelper.showNoteNotification(
+                                                getApplicationContext(),
+                                                "Note modifiée",
+                                                doc.getString("title"));
+                                        break;
+
+                                    case REMOVED:
+                                        // Supprimer la note locale
+                                        String removedTitle = doc.getString("title");
+                                        deleteRemoteNoteLocally(firebaseDocId);
+                                        NotificationHelper.showNoteNotification(
+                                                getApplicationContext(),
+                                                "Note supprimée",
+                                                removedTitle);
+                                        break;
                                 }
                             }
                         }
@@ -638,6 +665,40 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
      * Déchiffre le DocumentSnapshot reçu de Firestore et l'insère ou met à jour
      * la note dans ta base locale, puis rafraîchit l'affichage.
      */
+    private void updateRemoteNoteLocally(DocumentSnapshot doc, String firebaseDocId) {
+        try {
+            Note localNote = db.getNoteByFirebaseDocId(firebaseDocId);
+            if (localNote == null) return;
+
+            String title = doc.getString("title");
+            String content = doc.getString("content");
+            Long colorObj = doc.getLong("color");
+            int color = (colorObj != null) ? colorObj.intValue() : localNote.getColor();
+            Long positionObj = doc.getLong("position");
+            int position = (positionObj != null) ? positionObj.intValue() : localNote.getPosition();
+
+            Note updated = new Note(localNote.getId(), firebaseDocId, title, content, color, position);
+            db.insertOrUpdateNote(updated);
+            runOnUiThread(this::loadNotesFromLocalDatabase);
+            Log.d(TAG, "Note distante mise à jour localement: " + firebaseDocId);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur updateRemoteNoteLocally", e);
+        }
+    }
+
+    private void deleteRemoteNoteLocally(String firebaseDocId) {
+        try {
+            Note localNote = db.getNoteByFirebaseDocId(firebaseDocId);
+            if (localNote == null) return;
+
+            db.deleteNoteById(localNote.getId());
+            runOnUiThread(this::loadNotesFromLocalDatabase);
+            Log.d(TAG, "Note distante supprimée localement: " + firebaseDocId);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur deleteRemoteNoteLocally", e);
+        }
+    }
+
     private void saveRemoteNoteLocally(DocumentSnapshot doc) {
         String firebaseDocId = doc.getString("firebaseDocId");
         if (firebaseDocId == null) {
