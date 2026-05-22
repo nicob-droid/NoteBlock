@@ -118,7 +118,7 @@
     <string name="about">A propos</string>
     <string name="privacy_policy_title">Politique de confidentialité</string>
     <string name="privacy_policy_summary">Consulter notre politique de confidentialité</string>
-    <string name="privacy_policy_url">https://votre-pseudo.github.io/cosmonote/privacy-policy.html</string>
+    <string name="privacy_policy_url">https://nicob-droid.github.io/NoteBlock/privacy-policy.html </string>
     <!-- Titre et résumé -->
     <string name="theme_title">Thème de l\'application</string>
     <string name="theme_summary">Choisissez clair, sombre ou automatique</string>
