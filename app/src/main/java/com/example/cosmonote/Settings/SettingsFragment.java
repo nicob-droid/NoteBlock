@@ -4,6 +4,7 @@ import com.cosmonote.app.BuildConfig;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -175,6 +176,16 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
 
         if (datePref != null) {
             datePref.setSummary(BuildConfig.BUILD_DATE);
+        }
+
+        Preference privacyPref = findPreference("privacy_policy");
+        if (privacyPref != null) {
+            privacyPref.setOnPreferenceClickListener(preference -> {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse(getString(R.string.privacy_policy_url)));
+                startActivity(browserIntent);
+                return true;
+            });
         }
 
         //

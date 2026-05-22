@@ -87,6 +87,10 @@
             android:title="Date de build"
             android:summary="-"
             android:enabled="false" />
+        <Preference
+            android:key="privacy_policy"
+            android:title="@string/privacy_policy_title"
+            android:summary="@string/privacy_policy_summary" />
     </PreferenceCategory>
 
 

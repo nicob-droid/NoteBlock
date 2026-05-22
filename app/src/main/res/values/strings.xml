@@ -116,6 +116,9 @@
     <string name="set_pin_title">Définir un code PIN</string>
     <string name="enter_pin_message">Entrez un code PIN à 4 chiffres</string>
     <string name="about">A propos</string>
+    <string name="privacy_policy_title">Politique de confidentialité</string>
+    <string name="privacy_policy_summary">Consulter notre politique de confidentialité</string>
+    <string name="privacy_policy_url">https://votre-pseudo.github.io/cosmonote/privacy-policy.html</string>
     <!-- Titre et résumé -->
     <string name="theme_title">Thème de l\'application</string>
     <string name="theme_summary">Choisissez clair, sombre ou automatique</string>
