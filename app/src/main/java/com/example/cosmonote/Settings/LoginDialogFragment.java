@@ -4,7 +4,6 @@ package com.example.cosmonote.Settings;
 import android.app.Dialog;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -16,6 +15,8 @@ import androidx.fragment.app.DialogFragment;
 import com.example.cosmonote.R;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+
+import java.util.Objects;
 
 public class LoginDialogFragment extends DialogFragment {
 
@@ -46,19 +47,17 @@ public class LoginDialogFragment extends DialogFragment {
                 .setNegativeButton(getString(R.string.cancel), (dialogInterface, which) -> dismiss())
                 .create();
 
-        dialog.setOnShowListener(d -> {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String email = emailEditText.getText().toString().trim();
-                String password = passwordEditText.getText().toString();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String email = emailEditText.getText().toString().trim();
+            String password = passwordEditText.getText().toString();
 
-                if (TextUtils.isEmpty(email) || TextUtils.isEmpty(password)) {
-                    Toast.makeText(getContext(), getString(R.string.please_fill_all), Toast.LENGTH_SHORT).show();
-                    return;
-                }
+            if (TextUtils.isEmpty(email) || TextUtils.isEmpty(password)) {
+                Toast.makeText(getContext(), getString(R.string.please_fill_all), Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                loginWithFirebase(email, password, dialog); // on passe le dialog
-            });
-        });
+            loginWithFirebase(email, password, dialog); // on passe le dialog
+        }));
 
         return dialog;
     }
@@ -76,7 +75,7 @@ public class LoginDialogFragment extends DialogFragment {
                         }
                         dialog.dismiss(); // on ferme le dialog seulement ici
                     } else {
-                        Toast.makeText(getContext(), getString(R.string.connect_error)  + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(getContext(), getString(R.string.connect_error)  + Objects.requireNonNull(task.getException()).getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
     }

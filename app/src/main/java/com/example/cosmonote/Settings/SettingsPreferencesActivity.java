@@ -2,11 +2,12 @@ package com.example.cosmonote.Settings;
 
 
 import android.os.Bundle;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.example.cosmonote.BaseActivity;
 import com.example.cosmonote.R;
+
+import java.util.Objects;
 
 public class SettingsPreferencesActivity extends BaseActivity {
     @Override
@@ -26,7 +27,7 @@ public class SettingsPreferencesActivity extends BaseActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         setTitle(R.string.settings); // depuis strings.xml
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
     }
 
     @Override

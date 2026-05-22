@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import android.text.InputType;
 import android.widget.EditText;
@@ -38,8 +39,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
     private FirebaseAuth auth;
 
     private Preference registerPref, loginPref, logoutPref;
-    private Preference shareIdPref, manageSharingPref;
-    private SwitchPreferenceCompat notificationPref;
+    private Preference manageSharingPref;
     private SwitchPreferenceCompat pinEnabledPref;
     private Preference changePinPref;
     private PreferenceCategory sharingNotesCategory;
@@ -55,10 +55,10 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         registerPref = findPreference(getString(R.string.key_register));
         loginPref = findPreference(getString(R.string.key_login));
         logoutPref = findPreference(getString(R.string.key_logout));
-        shareIdPref = findPreference(getString(R.string.key_share_id));
+        Preference shareIdPref = findPreference(getString(R.string.key_share_id));
         manageSharingPref = findPreference(getString(R.string.key_manage_sharing));
         sharingNotesCategory = findPreference(getString(R.string.sharing_notes));
-        notificationPref = findPreference(getString(R.string.key_notifications));
+        SwitchPreferenceCompat notificationPref = findPreference(getString(R.string.key_notifications));
         Preference versionPref = findPreference("app_version");
         Preference datePref = findPreference("app_build_date");
         ListPreference themePref = findPreference(getString(R.string.key_theme_preference));
@@ -106,7 +106,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             shareIdPref.setOnPreferenceClickListener(preference -> {
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
                 shareIntent.setType("text/plain");
-                shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.my_current_id) + "\n" + user.getUid());
+                shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.my_current_id) + "\n" + Objects.requireNonNull(user).getUid());
                 startActivity(Intent.createChooser(shareIntent, getString(R.string.share_id_with)));
                 return true;
             });
@@ -185,8 +185,6 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         if (enabled) {
             if (!NotificationHelper.areNotificationsEnabled(requireContext())) {
                 NotificationHelper.openNotificationSettings(requireContext());
-            } else {
-                // Tu peux lancer un service ici si nécessaire
             }
         } else {
             NotificationHelper.cancelAllNotifications(requireContext());
@@ -306,20 +304,18 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                             deleteBtn.setText("✕");
                             deleteBtn.setTextSize(18);
                             deleteBtn.setPadding(pad, 0, 0, 0);
-                            deleteBtn.setOnClickListener(v -> {
-                                FirebaseFirestore.getInstance()
-                                        .collection("users")
-                                        .document(ownerUid)
-                                        .collection("shared_users")
-                                        .document(uid)
-                                        .delete()
-                                        .addOnSuccessListener(aVoid -> {
-                                            Toast.makeText(requireContext(), getString(R.string.share_removed), Toast.LENGTH_SHORT).show();
-                                            layout.removeView(row);
-                                            sharedUids.remove(uid);
-                                            updateManageSharingSummary(auth.getCurrentUser());
-                                        });
-                            });
+                            deleteBtn.setOnClickListener(v -> FirebaseFirestore.getInstance()
+                                    .collection("users")
+                                    .document(ownerUid)
+                                    .collection("shared_users")
+                                    .document(uid)
+                                    .delete()
+                                    .addOnSuccessListener(aVoid -> {
+                                        Toast.makeText(requireContext(), getString(R.string.share_removed), Toast.LENGTH_SHORT).show();
+                                        layout.removeView(row);
+                                        sharedUids.remove(uid);
+                                        updateManageSharingSummary(auth.getCurrentUser());
+                                    }));
                             row.addView(deleteBtn);
                             layout.addView(row);
                         }
@@ -328,9 +324,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                     new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                             .setTitle(getString(R.string.manage_sharing_title))
                             .setView(layout)
-                            .setPositiveButton(getString(R.string.add_shared_user), (dialog, which) -> {
-                                showAddSharedUserDialog(ownerUid);
-                            })
+                            .setPositiveButton(getString(R.string.add_shared_user), (dialog, which) -> showAddSharedUserDialog(ownerUid))
                             .setNegativeButton(getString(R.string.cancel), null)
                             .show();
                 });

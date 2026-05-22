@@ -2,13 +2,12 @@ package com.example.cosmonote;
 
 
 import android.Manifest;
-import android.app.PendingIntent;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -19,36 +18,24 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.example.cosmonote.Settings.SettingsFragment;
 import com.example.cosmonote.Settings.SettingsPreferencesActivity;
-import com.example.cosmonote.Utils.HashUtils;
 import com.example.cosmonote.Utils.NotePreferences;
 import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 
@@ -65,14 +52,10 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     public static final String EXTRA_NOTE_COLOR = "note_color";
     public static final String EXTRA_NOTE_POSITION = "note_position";
     private static final int REQUEST_CODE_POST_NOTIF = 1001;
-
-    private RecyclerView recyclerView;
     private NotesAdapter adapter;
     private List<Note> notesList;
     private NoteDatabase db;
-    //private ListenerRegistration noteListener;
     private final List<ListenerRegistration> activeListeners = new ArrayList<>();
-
     private Date lastSeenNoteTimestamp;
 
 
@@ -82,7 +65,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
         setContentView(R.layout.activity_notes);
 
-        recyclerView = findViewById(R.id.notes_recycler_view);
+        RecyclerView recyclerView = findViewById(R.id.notes_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         // Données
@@ -90,8 +73,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
         // Lire la date de la dernière note
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
-        // Récupérer le PIN
-        String storedPinHash = NotePreferences.loadStoredPinHash(this);
         // Init database
         db = new NoteDatabase(this);
         // Charger la database
@@ -109,21 +90,19 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
         // Init du bouton supprimer tout
         FloatingActionButton fabDeleteAll = findViewById(R.id.fab_delete_all);
-        fabDeleteAll.setOnClickListener(v -> {
-            new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle(getString(R.string.delete_all_notes_confirmation_title))
-                    .setMessage(getString(R.string.delete_all_notes_confirmation_message))
-                    .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
-                    .setNegativeButton(getString(R.string.no), null)
-                    .show();
-        });
+        fabDeleteAll.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.delete_all_notes_confirmation_title))
+                .setMessage(getString(R.string.delete_all_notes_confirmation_message))
+                .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
+                .setNegativeButton(getString(R.string.no), null)
+                .show());
 
         // Ajouter un ItemTouchHelper pour gérer le déplacement des notes
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
                 ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
 
             @Override
-            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
                 int fromPosition = viewHolder.getAdapterPosition();
                 int toPosition = target.getAdapterPosition();
                 // Mets à jour les données de ta liste (ex : swap dans l'ArrayList)
@@ -134,7 +113,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 return true;
             }
             @Override
-            public void clearView(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder) {
+            public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
                 super.clearView(recyclerView, viewHolder);
 
                 // L'utilisateur a fini de déplacer
@@ -143,7 +122,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 updateItemPositionsInDatabase();
             }
             @Override
-            public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 // Ici, pas de swipe donc rien à faire
             }
             @Override
@@ -216,9 +195,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                 }
                             }
                         })
-                        .addOnFailureListener(e -> {
-                            Log.w(TAG, "Impossible de récupérer sharedUserId", e);
-                        });
+                        .addOnFailureListener(e -> Log.w(TAG, "Impossible de récupérer sharedUserId", e));
             }
         }
     }
@@ -273,7 +250,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             diffResult.dispatchUpdatesTo(adapter);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "[loadNotesFromLocalDatabase] Exception " + e.getMessage());
             Toast.makeText(this, getString(R.string.load_notes_error), Toast.LENGTH_SHORT).show();
         }
     }
@@ -492,7 +469,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         }
                                     }
                                 } catch (Exception e) {
-                                    e.printStackTrace();
+                                    Log.e(TAG, "[fetchNotesFromFirestore] Exception " + e.getMessage());
                                 }
                             }
                             // Rafraîchir l'affichage après la synchro
@@ -538,48 +515,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                     }
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Erreur migration Firestore", e));
-    }
-
-
-    private void fetchAllRelevantNotes(String userId) {
-        FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (firebaseUser == null) {
-            // Pas connecté, on peut juste charger local
-            loadNotesFromLocalDatabase();
-            return;
-        }
-
-        // 1. Charger les notes locales (optionnel)
-        loadNotesFromLocalDatabase();
-
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        // 2. Récupérer l'UID du sharedUser (s'il y en a) depuis Firestore
-        db.collection("users")
-                .document(userId)
-                .collection("shared_users")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    // Toujours récupérer les notes de l'utilisateur connecté
-                    fetchNotesFromFirestore(this, userId);
-
-                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                        for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                            String sharedUserId = doc.getString("sharedUserId");
-                            if (sharedUserId != null
-                                    && !sharedUserId.isEmpty()
-                                    && !sharedUserId.equals(userId)) {
-                                fetchNotesFromFirestore(this, sharedUserId);
-                            }
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    // Erreur Firestore, on charge au moins les notes de l'utilisateur connecté
-                    fetchNotesFromFirestore(this, userId);
-                    Log.e("Firestore", "Erreur lors de la récupération des partages", e);
-                });
-
     }
 
     private void startListeningNotes(String userId) {

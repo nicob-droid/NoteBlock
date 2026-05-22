@@ -24,11 +24,6 @@ public class NotePreferences {
         return new Date(millis);
     }
 
-    public static void resetLastSeenTimestamp(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().remove(KEY_LAST_SEEN_TIMESTAMP).apply();
-    }
-
     public static void saveStoredPinHash(Context context, String hash) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString(KEY_PIN_HASH, hash).apply();

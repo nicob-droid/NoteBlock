@@ -5,17 +5,13 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.graphics.Color;
 import android.util.Log;
 
-import com.example.cosmonote.Utils.HashUtils;
-
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NoteDatabase extends SQLiteOpenHelper {
-
+    private static final String TAG = NoteDatabase.class.getSimpleName();
     private static final String DATABASE_NAME = "notes_db";
     private static final int DATABASE_VERSION = 4;
     public static final String TABLE_NAME = "notes";
@@ -67,11 +63,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
         }
     }
 
-    public long insertNote(String title, String content, int color, int position) throws Exception {
-        return insertNote(java.util.UUID.randomUUID().toString(), title, content, color, position);
-    }
-
-    public long insertNote(String firebaseDocId, String title, String content, int color, int position) throws Exception {
+    public long insertNote(String firebaseDocId, String title, String content, int color, int position) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_FIREBASE_DOC_ID, firebaseDocId);
@@ -82,7 +74,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
         return db.insert(TABLE_NAME, null, cv);
     }
 
-    public void updateNote(long id, String title, String content, int color, int position) throws Exception {
+    public void updateNote(long id, String title, String content, int color, int position) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_TITLE, title);
@@ -92,7 +84,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
         db.update(TABLE_NAME, cv, "id=?", new String[]{String.valueOf(id)});
     }
 
-    public void updateAllNotePositions(List<Note> notesList) throws Exception {
+    public void updateAllNotePositions(List<Note> notesList) {
         SQLiteDatabase db = getWritableDatabase();
 
         for (int i = 0; i < notesList.size(); i++) {
@@ -128,7 +120,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 try {
                     notes.add(new Note(id, firebaseDocId, title, content, color, position));
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Log.e(TAG, "[getAllNotes] Error creating Note object for id " + id, e);
                 }
             }
             cursor.close();
@@ -201,22 +193,11 @@ public class NoteDatabase extends SQLiteOpenHelper {
     }
 
 
-
-    public void updateNoteEncrypted(long noteId, String encryptedTitle, String encryptedContent) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put("title", encryptedTitle);
-        values.put("content", encryptedContent);
-
-        db.update(TABLE_NAME, values, "id = ?", new String[]{String.valueOf(noteId)});
-        db.close();
-    }
-
     /**
      * Insère ou met à jour une note en se basant sur le firebaseDocId (UUID unique).
      * Évite les doublons entre utilisateurs qui ont des auto-increments différents.
      */
-    public void insertOrUpdateNote(Note note) throws Exception {
+    public void insertOrUpdateNote(Note note) {
         Note existing = getNoteByFirebaseDocId(note.getFirebaseDocId());
         if (existing != null) {
             // Met à jour la note existante (avec l'ID local correct)
@@ -225,16 +206,6 @@ public class NoteDatabase extends SQLiteOpenHelper {
             // Insère avec le firebaseDocId, ID local auto-généré
             insertNote(note.getFirebaseDocId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
         }
-    }
-
-    private boolean noteExists(long id) {
-        SQLiteDatabase db = getReadableDatabase();
-        Cursor cursor = db.query(TABLE_NAME, new String[] {COLUMN_ID},
-                COLUMN_ID + "=?", new String[] {String.valueOf(id)},
-                null, null, null);
-        boolean exists = (cursor.getCount() > 0);
-        cursor.close();
-        return exists;
     }
 
     public boolean noteExistsByFirebaseDocId(String firebaseDocId) {
@@ -247,18 +218,4 @@ public class NoteDatabase extends SQLiteOpenHelper {
         cursor.close();
         return exists;
     }
-
-    // Méthode insertNoteWithId conservée pour compatibilité mais utilise désormais firebaseDocId
-    public void insertNoteWithId(long id, String title, String content, int color, int position) throws Exception {
-        SQLiteDatabase db = getWritableDatabase();
-        ContentValues cv = new ContentValues();
-        cv.put(COLUMN_ID, id);
-        cv.put(COLUMN_FIREBASE_DOC_ID, java.util.UUID.randomUUID().toString());
-        cv.put(COLUMN_TITLE, title);
-        cv.put(COLUMN_CONTENT, content);
-        cv.put(COLUMN_COLOR, color);
-        cv.put(COLUMN_POSITION, position);
-        db.insert(TABLE_NAME, null, cv);
-    }
-
 }

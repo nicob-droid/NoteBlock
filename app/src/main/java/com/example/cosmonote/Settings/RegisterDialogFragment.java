@@ -52,33 +52,31 @@ public class RegisterDialogFragment extends DialogFragment {
         AlertDialog dialog = builder.create();
 
         // Override pour bouton positif, empêcher la fermeture automatique si erreur
-        dialog.setOnShowListener(dialogInterface -> {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                String email = emailEditText.getText().toString().trim();
-                String password = passwordEditText.getText().toString();
+        dialog.setOnShowListener(dialogInterface -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String email = emailEditText.getText().toString().trim();
+            String password = passwordEditText.getText().toString();
 
-                if (TextUtils.isEmpty(email)) {
-                    emailEditText.setError(getString(R.string.email_required));
-                    return;
-                }
-                if (TextUtils.isEmpty(password) || password.length() < 6) {
-                    passwordEditText.setError(getString(R.string.password_required_minimum));
-                    return;
-                }
+            if (TextUtils.isEmpty(email)) {
+                emailEditText.setError(getString(R.string.email_required));
+                return;
+            }
+            if (TextUtils.isEmpty(password) || password.length() < 6) {
+                passwordEditText.setError(getString(R.string.password_required_minimum));
+                return;
+            }
 
-                // Créer utilisateur Firebase
-                auth.createUserWithEmailAndPassword(email, password)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Toast.makeText(getContext(), getString(R.string.register_success), Toast.LENGTH_SHORT).show();
-                            if (listener != null) listener.onRegisterSuccess(email);
-                            dismiss();
-                        } else {
-                            Toast.makeText(getContext(), getString(R.string.register_error), Toast.LENGTH_LONG).show();
-                        }
-                    });
-            });
-        });
+            // Créer utilisateur Firebase
+            auth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(getContext(), getString(R.string.register_success), Toast.LENGTH_SHORT).show();
+                        if (listener != null) listener.onRegisterSuccess(email);
+                        dismiss();
+                    } else {
+                        Toast.makeText(getContext(), getString(R.string.register_error), Toast.LENGTH_LONG).show();
+                    }
+                });
+        }));
 
         return dialog;
     }

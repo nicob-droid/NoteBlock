@@ -5,12 +5,8 @@ import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_COLOR;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_ID;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_POSITION;
 
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -19,20 +15,13 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.NotificationCompat;
 
-import com.example.cosmonote.Utils.HashUtils;
-import com.example.cosmonote.Utils.NotePreferences;
-import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.SetOptions;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -73,12 +62,7 @@ public class EditNoteActivity extends BaseActivity  {
         manageDeleteButton();
 
         // Manage button SHARE
-        btnShare.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                shareNote();
-            }
-        });
+        btnShare.setOnClickListener(v -> shareNote());
     }
 
     @Override
@@ -119,17 +103,15 @@ public class EditNoteActivity extends BaseActivity  {
 
     private void manageDeleteButton() {
         if (note != null) {
-            btnDelete.setOnClickListener(v -> {
-                new AlertDialog.Builder(this)
-                        .setTitle(getString(R.string.delete_note_confirmation_title))
-                        .setMessage(getString(R.string.delete_note_confirmation_message))
-                        .setPositiveButton(getString(R.string.yes), (dialog, which) -> {
-                            // remove note
-                            deleteNote(note);
-                        })
-                        .setNegativeButton(getString(R.string.no), null)
-                        .show();
-            });
+            btnDelete.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.delete_note_confirmation_title))
+                    .setMessage(getString(R.string.delete_note_confirmation_message))
+                    .setPositiveButton(getString(R.string.yes), (dialog, which) -> {
+                        // remove note
+                        deleteNote(note);
+                    })
+                    .setNegativeButton(getString(R.string.no), null)
+                    .show());
         } else {
             // Masquer le bouton SUPPRIMER si c'est une nouvelle note
             ll_delete.setVisibility(View.GONE);
@@ -156,9 +138,7 @@ public class EditNoteActivity extends BaseActivity  {
                         isNoteDeleted = true;  // Ici, seulement après réussite
                         finish();              // Et on quitte après
                     })
-                    .addOnFailureListener(e -> {
-                        Log.e("DeleteNote", "Erreur lors de la suppression de Firestore", e);
-                    });
+                    .addOnFailureListener(e -> Log.e("DeleteNote", "Erreur lors de la suppression de Firestore", e));
         } else {
             isNoteDeleted = true; // local seulement
             finish();
@@ -210,7 +190,7 @@ public class EditNoteActivity extends BaseActivity  {
 
             // Synchroniser Firestore : timestamp seulement à la création
             if(!isNoteDeleted) {
-                syncNoteToFirestore(note, noteId == -1);
+                syncNoteToFirestore(note);
             }
 
         } catch (Exception e) {
@@ -235,7 +215,7 @@ public class EditNoteActivity extends BaseActivity  {
     }
 
 
-    private void syncNoteToFirestore(Note note, boolean isNew) {
+    private void syncNoteToFirestore(Note note) {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) {
             Log.w(TAG, "Utilisateur non connecté, pas de sync Firestore");
@@ -259,37 +239,7 @@ public class EditNoteActivity extends BaseActivity  {
         noteData.put("timestamp", new Timestamp(new Date(note.getTimestamp())));
 
         docRef.set(noteData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Note synchronisée dans Firestore firebaseDocId=" + note.getFirebaseDocId());
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Erreur lors de la sync Firestore", e);
-                });
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Note synchronisée dans Firestore firebaseDocId=" + note.getFirebaseDocId()))
+                .addOnFailureListener(e -> Log.e(TAG, "Erreur lors de la sync Firestore", e));
     }
-
-
-    // Exemple simple de méthode notification
-    private void showNotification(String title, String content) {
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-
-        String channelId = "note_channel";
-        NotificationChannel channel = new NotificationChannel(channelId, "Notes", NotificationManager.IMPORTANCE_DEFAULT);
-        notificationManager.createNotificationChannel(channel);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.drawable.ic_note) // adapte l'icône
-                .setContentTitle(title)
-                .setContentText(content)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setAutoCancel(true);
-
-        notificationManager.notify((int) System.currentTimeMillis(), builder.build());
-    }
-
-
-
-
-
-
-
 }

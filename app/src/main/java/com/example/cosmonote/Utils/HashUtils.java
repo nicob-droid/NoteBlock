@@ -1,32 +1,11 @@
 package com.example.cosmonote.Utils;
 
-import android.util.Base64;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.Arrays;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
-
-
-import android.util.Base64;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-
-import javax.crypto.Cipher;
-import javax.crypto.spec.GCMParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 
 public class HashUtils {
-
-    private static final String AES_MODE = "AES/GCM/NoPadding";
-    private static final int GCM_TAG_LENGTH = 128; // bits
-    private static final int IV_LENGTH = 12; // bytes
 
     // --- Hash SHA-256 (retourne hex string) ---
     public static byte[] sha256(byte[] data) {
@@ -54,30 +33,6 @@ public class HashUtils {
     public static String sha256Hex(String input) {
         byte[] hash = sha256(input.getBytes(StandardCharsets.UTF_8));
         return bytesToShaHex(hash);
-    }
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
-        }
-        return data;
-    }
-
-    // --- Encrypt AES-GCM ---
-
-
-    // --- Decrypt AES-GCM ---
-
-
-    // --- Helper: convertit bytes en hex ---
-    private static String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02x", b));
-        }
-        return sb.toString();
     }
 }
 

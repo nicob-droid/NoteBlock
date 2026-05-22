@@ -19,8 +19,8 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         void onColorPickerClick(Note note);
     }
 
-    private List<Note> notes;
-    private OnNoteClickListener listener;
+    private final List<Note> notes;
+    private final OnNoteClickListener listener;
     private int selectedPosition = RecyclerView.NO_POSITION; // -1
 
     public NotesAdapter(List<Note> notes, OnNoteClickListener listener) {
@@ -34,10 +34,6 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         notifyDataSetChanged();
     }
 
-
-    public int getSelectedPosition() {
-        return selectedPosition;
-    }
 
     @NonNull
     @Override
