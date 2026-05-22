@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
 
     <application
-        android:name=".MyApplication"
+        android:name="com.example.cosmonote.MyApplication"
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.NoteBlocked" >
 
-        <activity android:name=".MainActivity"
+        <activity android:name="com.example.cosmonote.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -21,7 +24,7 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name=".NoteWidgetProvider"
+        <receiver android:name="com.example.cosmonote.NoteWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -32,11 +35,11 @@
                 android:resource="@xml/note_widget_info" />
         </receiver>
 
-        <activity android:name=".EditNoteActivity" />
-        <activity android:name=".NotesActivity" />
+        <activity android:name="com.example.cosmonote.EditNoteActivity" />
+        <activity android:name="com.example.cosmonote.NotesActivity" />
 
         <activity
-            android:name=".Settings.SettingsPreferencesActivity"
+            android:name="com.example.cosmonote.Settings.SettingsPreferencesActivity"
             android:theme="@style/Theme.NoteBlock.NoActionBar"
             android:label="@string/settings" />
 

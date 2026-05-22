@@ -9,17 +9,17 @@ def versionMinor = project.VERSION_MINOR.toInteger()
 def versionPatch = project.VERSION_PATCH.toInteger()
 
 android {
-    namespace 'com.example.cosmonote'
-    compileSdk 34
+    namespace 'com.cosmonote.app'
+    compileSdk 35
 
     buildFeatures {
         buildConfig true
     }
 
     defaultConfig {
-        applicationId "com.example.cosmonote"
+        applicationId "com.cosmonote.app"
         minSdk 26
-        targetSdk 34
+        targetSdk 35
 
         versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
         versionName "${versionMajor}.${versionMinor}.${versionPatch}"
@@ -30,9 +30,20 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            storeFile file('../keystore/cosmonote-release.jks')
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias System.getenv("KEY_ALIAS") ?: "cosmonote"
+            keyPassword System.getenv("KEY_PASSWORD") ?: ""
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

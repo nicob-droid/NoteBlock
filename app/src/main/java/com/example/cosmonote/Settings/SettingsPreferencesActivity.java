@@ -5,7 +5,7 @@ import android.os.Bundle;
 import androidx.appcompat.widget.Toolbar;
 
 import com.example.cosmonote.BaseActivity;
-import com.example.cosmonote.R;
+import com.cosmonote.app.R;
 
 import java.util.Objects;
 

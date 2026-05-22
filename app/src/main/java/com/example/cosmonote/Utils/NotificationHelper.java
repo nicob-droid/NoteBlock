@@ -15,7 +15,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.preference.PreferenceManager;
 
-import com.example.cosmonote.R;
+import com.cosmonote.app.R;
 
 public class NotificationHelper {
     private static final String TAG = "NotificationHelper";

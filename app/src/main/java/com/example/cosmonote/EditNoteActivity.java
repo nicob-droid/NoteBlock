@@ -1,5 +1,6 @@
 package com.example.cosmonote;
 
+import com.cosmonote.app.R;
 
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_COLOR;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_ID;

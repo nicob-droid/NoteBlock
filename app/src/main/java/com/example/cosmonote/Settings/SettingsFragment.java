@@ -1,6 +1,6 @@
 package com.example.cosmonote.Settings;
 
-import com.example.cosmonote.BuildConfig;
+import com.cosmonote.app.BuildConfig;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -14,7 +14,7 @@ import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 
-import com.example.cosmonote.R;
+import com.cosmonote.app.R;
 import com.example.cosmonote.Utils.HashUtils;
 import com.example.cosmonote.Utils.NotePreferences;
 import com.example.cosmonote.Utils.NotificationHelper;

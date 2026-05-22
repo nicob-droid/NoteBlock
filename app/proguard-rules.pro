@@ -19,3 +19,15 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Firebase
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+
+# Keep app model classes (Firestore serialization)
+-keep class com.example.cosmonote.** { *; }
+
+# Keep Preference keys referenced via @string
+-keepclassmembers class * extends androidx.preference.Preference { *; }

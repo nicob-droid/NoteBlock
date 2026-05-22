@@ -1,5 +1,6 @@
 package com.example.cosmonote;
 
+import com.cosmonote.app.R;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;

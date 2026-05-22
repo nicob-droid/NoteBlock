@@ -13,7 +13,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.DialogFragment;
 
-import com.example.cosmonote.R;
+import com.cosmonote.app.R;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class RegisterDialogFragment extends DialogFragment {

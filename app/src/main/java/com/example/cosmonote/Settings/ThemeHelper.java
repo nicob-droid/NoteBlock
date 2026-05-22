@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.preference.PreferenceManager;
 
-import com.example.cosmonote.R;
+import com.cosmonote.app.R;
 
 public class ThemeHelper {
 
