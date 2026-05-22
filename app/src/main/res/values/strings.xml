@@ -96,6 +96,12 @@
     <string name="receive_notifications_from_app">Recevoir des notifications de l\'application</string>
 
     <string name="sharing_enabled_with">Partage avec : </string>
+    <string name="manage_sharing_title">Gérer les partages</string>
+    <string name="manage_sharing_summary">Voir, ajouter ou supprimer des utilisateurs partagés</string>
+    <string name="no_shared_users">Aucun utilisateur partagé</string>
+    <string name="add_shared_user">Ajouter un utilisateur</string>
+    <string name="enter_uid_to_share">Entrez l\'UID de l\'utilisateur à ajouter</string>
+    <string name="share_removed">Partage supprimé</string>
     <string name="app_version">Version</string>
 
     <!-- Catégorie -->

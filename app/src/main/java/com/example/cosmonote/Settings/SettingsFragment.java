@@ -8,8 +8,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
-import androidx.core.app.NotificationManagerCompat;
-import androidx.preference.EditTextPreference;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
@@ -25,24 +23,25 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.text.InputType;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 public class SettingsFragment extends PreferenceFragmentCompat implements LoginDialogFragment.LoginSuccessListener {
 
     private FirebaseAuth auth;
 
     private Preference registerPref, loginPref, logoutPref;
-    private Preference shareIdPref, saveSharingPref, deleteSharingPref;
+    private Preference shareIdPref, manageSharingPref;
     private SwitchPreferenceCompat notificationPref;
     private SwitchPreferenceCompat pinEnabledPref;
     private Preference changePinPref;
-    private EditTextPreference sharedUserIdPref;
     private PreferenceCategory sharingNotesCategory;
 
     @Override
@@ -56,10 +55,8 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         registerPref = findPreference(getString(R.string.key_register));
         loginPref = findPreference(getString(R.string.key_login));
         logoutPref = findPreference(getString(R.string.key_logout));
-        sharedUserIdPref = findPreference(getString(R.string.key_shared_user_id));
         shareIdPref = findPreference(getString(R.string.key_share_id));
-        saveSharingPref = findPreference(getString(R.string.key_save_sharing));
-        deleteSharingPref = findPreference(getString(R.string.key_delete_sharing));
+        manageSharingPref = findPreference(getString(R.string.key_manage_sharing));
         sharingNotesCategory = findPreference(getString(R.string.sharing_notes));
         notificationPref = findPreference(getString(R.string.key_notifications));
         Preference versionPref = findPreference("app_version");
@@ -105,16 +102,6 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             });
         }
 
-        if (sharedUserIdPref != null) {
-            sharedUserIdPref.setOnPreferenceChangeListener((preference, newValue) -> {
-                String newUid = (String) newValue;
-                //Toast.makeText(getContext(), "UID partagé mis à jour : " + newUid, Toast.LENGTH_SHORT).show();
-                // Afficher le nouvel UID dans le résumé
-                sharedUserIdPref.setSummary(getString(R.string.sharing_enabled_with) + newUid);
-                return true;
-            });
-        }
-
         if (shareIdPref != null) {
             shareIdPref.setOnPreferenceClickListener(preference -> {
                 Intent shareIntent = new Intent(Intent.ACTION_SEND);
@@ -125,42 +112,9 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             });
         }
 
-        if ((saveSharingPref != null) && (user != null) && (sharedUserIdPref != null)) {
-            saveSharingPref.setOnPreferenceClickListener(preference -> {
-                saveSharedUserId(user.getUid(), sharedUserIdPref.getText());
-                return true;
-            });
-        }
-
-        if (deleteSharingPref != null) {
-            deleteSharingPref.setOnPreferenceClickListener(preference -> {
-                if (user != null) {
-                    String ownerUid = user.getUid();
-                    FirebaseFirestore.getInstance()
-                            .collection("users")
-                            .document(ownerUid)
-                            .collection("shared_users")
-                            .get()
-                            .addOnSuccessListener(querySnapshot -> {
-                                // Supprimer tous les documents de shared_users
-                                for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                                    doc.getReference().delete();
-                                }
-
-                                Toast.makeText(requireContext(), getString(R.string.share_deleted), Toast.LENGTH_SHORT).show();
-
-                                if (sharedUserIdPref != null) {
-                                    sharedUserIdPref.setText("");
-                                    sharedUserIdPref.setSummary(getString(R.string.uid_to_share_notes_with));
-                                }
-
-                                updateSharingPrefState(ownerUid);
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(requireContext(), getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
-                                Log.e("Firestore", "Erreur suppression partage", e);
-                            });
-                }
+        if (manageSharingPref != null && user != null) {
+            manageSharingPref.setOnPreferenceClickListener(preference -> {
+                showManageSharingDialog(user.getUid());
                 return true;
             });
         }
@@ -224,7 +178,7 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         }
 
         //
-        initSharedUserId(auth.getCurrentUser());
+        updateManageSharingSummary(auth.getCurrentUser());
     }
 
     private void manageNotifications(boolean enabled) {
@@ -292,52 +246,115 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
 
     }
 
-    private void initSharedUserId(FirebaseUser user) {
-        if (user != null) {
-            String ownerUid = user.getUid();
-            FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(ownerUid)
-                    .collection("shared_users")
-                    .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                            DocumentSnapshot firstDoc = querySnapshot.getDocuments().get(0);
-                            String sharedUid = firstDoc.getString("sharedUserId");
-                            if (sharedUid != null && sharedUserIdPref != null) {
-                                sharedUserIdPref.setText(sharedUid);
-                                sharedUserIdPref.setSummary(getString(R.string.sharing_enabled_with) + " " + sharedUid);
-                            }
-                        }
-                        // Met à jour l'état des boutons
-                        updateSharingPrefState(ownerUid);
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e("Firestore", "Erreur lors du chargement du sharedUserId", e);
-                    });
-        }
+    private void updateManageSharingSummary(FirebaseUser user) {
+        if (user == null || manageSharingPref == null) return;
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(user.getUid())
+                .collection("shared_users")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!isAdded()) return;
+                    if (querySnapshot == null || querySnapshot.isEmpty()) {
+                        manageSharingPref.setSummary(getString(R.string.no_shared_users));
+                    } else {
+                        int count = querySnapshot.size();
+                        manageSharingPref.setSummary(getString(R.string.sharing_enabled_with) + count);
+                    }
+                });
     }
 
-
-    private void updateSharingPrefState(String ownerUid) {
+    private void showManageSharingDialog(String ownerUid) {
         FirebaseFirestore.getInstance()
                 .collection("users")
                 .document(ownerUid)
                 .collection("shared_users")
                 .get()
-                .addOnSuccessListener(querySnapshot  -> {
-                    boolean hasSharedUid = querySnapshot != null && !querySnapshot.isEmpty();
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!isAdded()) return;
+                    List<String> sharedUids = new ArrayList<>();
+                    if (querySnapshot != null) {
+                        for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                            String uid = doc.getString("sharedUserId");
+                            if (uid != null) sharedUids.add(uid);
+                        }
+                    }
 
-                    if (saveSharingPref != null) {
-                        saveSharingPref.setEnabled(!hasSharedUid);
+                    LinearLayout layout = new LinearLayout(requireContext());
+                    layout.setOrientation(LinearLayout.VERTICAL);
+                    int pad = (int) (16 * getResources().getDisplayMetrics().density);
+                    layout.setPadding(pad, pad, pad, pad);
+
+                    if (sharedUids.isEmpty()) {
+                        TextView emptyText = new TextView(requireContext());
+                        emptyText.setText(getString(R.string.no_shared_users));
+                        emptyText.setPadding(0, 0, 0, pad);
+                        layout.addView(emptyText);
+                    } else {
+                        for (int i = 0; i < sharedUids.size(); i++) {
+                            String uid = sharedUids.get(i);
+                            LinearLayout row = new LinearLayout(requireContext());
+                            row.setOrientation(LinearLayout.HORIZONTAL);
+                            row.setPadding(0, pad / 2, 0, pad / 2);
+
+                            TextView tv = new TextView(requireContext());
+                            tv.setText(uid);
+                            tv.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+                            row.addView(tv);
+
+                            TextView deleteBtn = new TextView(requireContext());
+                            deleteBtn.setText("✕");
+                            deleteBtn.setTextSize(18);
+                            deleteBtn.setPadding(pad, 0, 0, 0);
+                            deleteBtn.setOnClickListener(v -> {
+                                FirebaseFirestore.getInstance()
+                                        .collection("users")
+                                        .document(ownerUid)
+                                        .collection("shared_users")
+                                        .document(uid)
+                                        .delete()
+                                        .addOnSuccessListener(aVoid -> {
+                                            Toast.makeText(requireContext(), getString(R.string.share_removed), Toast.LENGTH_SHORT).show();
+                                            layout.removeView(row);
+                                            sharedUids.remove(uid);
+                                            updateManageSharingSummary(auth.getCurrentUser());
+                                        });
+                            });
+                            row.addView(deleteBtn);
+                            layout.addView(row);
+                        }
                     }
-                    if (deleteSharingPref != null) {
-                        deleteSharingPref.setEnabled(hasSharedUid);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e("Firestore", "Erreur lors de la mise à jour des préférences de partage", e);
+
+                    new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                            .setTitle(getString(R.string.manage_sharing_title))
+                            .setView(layout)
+                            .setPositiveButton(getString(R.string.add_shared_user), (dialog, which) -> {
+                                showAddSharedUserDialog(ownerUid);
+                            })
+                            .setNegativeButton(getString(R.string.cancel), null)
+                            .show();
                 });
+    }
+
+    private void showAddSharedUserDialog(String ownerUid) {
+        EditText input = new EditText(requireContext());
+        input.setHint(getString(R.string.enter_uid_to_share));
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.add_shared_user))
+                .setView(input)
+                .setPositiveButton(getString(R.string.save), (dialog, which) -> {
+                    String newUid = input.getText().toString().trim();
+                    if (newUid.isEmpty()) return;
+                    if (newUid.equals(ownerUid)) {
+                        Toast.makeText(requireContext(), getString(R.string.cant_share_with_yourself), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    saveSharedUserId(ownerUid, newUid);
+                })
+                .setNegativeButton(getString(R.string.cancel), null)
+                .show();
     }
 
     private void saveSharedUserId(String ownerUserId, String sharedUserId) {
@@ -348,15 +365,14 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             data.put("ownerId", ownerUserId);
             data.put("sharedUserId", sharedUserId);
 
-            // On crée un document sous users/{ownerUserId}/shared_users/{sharedUserId}
             db.collection("users")
                     .document(ownerUserId)
                     .collection("shared_users")
-                    .document(sharedUserId) // clé = sharedUserId pour permettre plusieurs partages si nécessaire
+                    .document(sharedUserId)
                     .set(data)
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(requireContext(), getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
-                        updateSharingPrefState(ownerUserId);
+                        updateManageSharingSummary(auth.getCurrentUser());
                     })
                     .addOnFailureListener(e -> {
                         Toast.makeText(requireContext(), getString(R.string.share_save_error), Toast.LENGTH_LONG).show();

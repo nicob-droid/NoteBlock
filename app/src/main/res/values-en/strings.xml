@@ -96,6 +96,12 @@
     <string name="receive_notifications_from_app">Receive notifications from app</string>
 
     <string name="sharing_enabled_with">Sharing with : </string>
+    <string name="manage_sharing_title">Manage sharing</string>
+    <string name="manage_sharing_summary">View, add or remove shared users</string>
+    <string name="no_shared_users">No shared users</string>
+    <string name="add_shared_user">Add a user</string>
+    <string name="enter_uid_to_share">Enter the UID of the user to add</string>
+    <string name="share_removed">Share removed</string>
     <string name="app_version">Version</string>
 
     <string name="category_appearance">Appearance</string>

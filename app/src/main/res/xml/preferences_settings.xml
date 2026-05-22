@@ -28,20 +28,10 @@
             android:title="@string/share_id_title"
             android:summary="@string/share_id_summary" />
 
-        <EditTextPreference
-            android:key="@string/key_shared_user_id"
-            android:title="@string/remote_user_uid"
-            android:summary="@string/uid_to_share_notes_with" />
-
         <Preference
-            android:key="@string/key_save_sharing"
-            android:title="@string/save_sharing_title"
-            android:summary="@string/save_sharing_summary" />
-
-        <Preference
-            android:key="@string/key_delete_sharing"
-            android:title="@string/delete_sharing_title"
-            android:summary="@string/delete_sharing_summary" />
+            android:key="@string/key_manage_sharing"
+            android:title="@string/manage_sharing_title"
+            android:summary="@string/manage_sharing_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory
