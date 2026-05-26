@@ -477,30 +477,22 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         return sb.toString();
     }
 
-    /** Synchronise toutes les notes existantes de fromUid vers toUid */
+    /**
+     * Réinitialise le timestamp de la dernière note vue pour forcer
+     * NotesActivity à récupérer toutes les notes de l'utilisateur partagé.
+     * Envoie aussi un broadcast pour forcer le rechargement immédiat.
+     */
     private void syncExistingNotes(String fromUid, String toUid) {
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-
-        // IMPORTANT: Réinitialiser le lastSeenTimestamp AVANT de charger les notes
-        // pour que le listener Firestore retraite les notes anciennes
-        if (requireContext() != null) {
+        // Réinitialiser le lastSeenTimestamp à 1970 pour que le listener
+        // considère TOUTES les notes de fromUid comme nouvelles
+        if (getContext() != null) {
             NotePreferences.saveLastSeenTimestamp(requireContext(), new Date(0));
-        }
 
-        db.collection("users").document(fromUid).collection("notes")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    if (querySnapshot == null || querySnapshot.isEmpty()) {
-                        return;
-                    }
-                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                        db.collection("users").document(toUid).collection("notes")
-                                .document(doc.getId())
-                                .set(doc.getData(), com.google.firebase.firestore.SetOptions.merge());
-                    }
-                    Log.d("Sync", "Synchronized " + querySnapshot.size() + " notes from " + fromUid + " to " + toUid);
-                })
-                .addOnFailureListener(e -> Log.e("Sync", "Failed to sync notes", e));
+            // Broadcast pour forcer NotesActivity à relancer ses listeners
+            Intent intent = new Intent("com.cosmonote.app.RELOAD_NOTES");
+            requireContext().sendBroadcast(intent);
+        }
+        Log.d("Sync", "Triggered reload for notes from " + fromUid + " to " + toUid);
     }
 
 }
