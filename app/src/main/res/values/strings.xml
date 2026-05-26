@@ -119,6 +119,23 @@
     <string name="privacy_policy_title">Politique de confidentialité</string>
     <string name="privacy_policy_summary">Consulter notre politique de confidentialité</string>
     <string name="privacy_policy_url">https://nicob-droid.github.io/NoteBlock/privacy-policy.html </string>
+    <!-- Codes de partage -->
+    <string name="share_method_title">Comment partager ?</string>
+    <string name="share_generate_code">Générer un code de partage</string>
+    <string name="share_enter_code">Rejoindre avec un code</string>
+    <string name="share_code_title">Votre code de partage</string>
+    <string name="share_code_message">Envoyez ce code à l\'autre utilisateur. Il est valable 10 minutes :</string>
+    <string name="share_code_expires">Ce code expire dans 10 minutes.</string>
+    <string name="share_code_invite">Rejoignez-moi sur CosmoNote avec le code :</string>
+    <string name="share_enter_code_title">Rejoindre avec un code</string>
+    <string name="share_enter_code_hint">Code à 6 caractères (ex: AB3X9K)</string>
+    <string name="share_code_invalid">Le code doit comporter exactement 6 caractères</string>
+    <string name="share_code_not_found">Code introuvable. Vérifiez et réessayez.</string>
+    <string name="share_code_expired">Ce code a expiré. Demandez un nouveau code.</string>
+    <string name="share_copy_code">Copier</string>
+    <string name="share_via">Partager via…</string>
+    <string name="share_code_copied">Code copié dans le presse-papier</string>
+
     <!-- Titre et résumé -->
     <string name="theme_title">Thème de l\'application</string>
     <string name="theme_summary">Choisissez clair, sombre ou automatique</string>

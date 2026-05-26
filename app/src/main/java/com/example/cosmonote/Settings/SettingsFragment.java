@@ -25,11 +25,12 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
+import java.util.Random;
 import android.text.InputType;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -335,56 +336,172 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                     new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                             .setTitle(getString(R.string.manage_sharing_title))
                             .setView(layout)
-                            .setPositiveButton(getString(R.string.add_shared_user), (dialog, which) -> showAddSharedUserDialog(ownerUid))
+                            .setPositiveButton(getString(R.string.add_shared_user), (dialog, which) -> showShareMethodChoiceDialog(ownerUid))
                             .setNegativeButton(getString(R.string.cancel), null)
                             .show();
                 });
     }
 
-    private void showAddSharedUserDialog(String ownerUid) {
-        EditText input = new EditText(requireContext());
-        input.setHint(getString(R.string.enter_uid_to_share));
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-
+    /** Étape 1 : choix entre "Générer un code" ou "Rejoindre avec un code" */
+    private void showShareMethodChoiceDialog(String ownerUid) {
+        String[] options = {
+                getString(R.string.share_generate_code),
+                getString(R.string.share_enter_code)
+        };
         new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle(getString(R.string.add_shared_user))
-                .setView(input)
-                .setPositiveButton(getString(R.string.save), (dialog, which) -> {
-                    String newUid = input.getText().toString().trim();
-                    if (newUid.isEmpty()) return;
-                    if (newUid.equals(ownerUid)) {
-                        Toast.makeText(requireContext(), getString(R.string.cant_share_with_yourself), Toast.LENGTH_SHORT).show();
-                        return;
+                .setTitle(getString(R.string.share_method_title))
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        generateShareCode(ownerUid);
+                    } else {
+                        showJoinWithCodeDialog(ownerUid);
                     }
-                    saveSharedUserId(ownerUid, newUid);
                 })
                 .setNegativeButton(getString(R.string.cancel), null)
                 .show();
     }
 
-    private void saveSharedUserId(String ownerUserId, String sharedUserId) {
-        if (sharedUserId != null && !sharedUserId.isEmpty()) {
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
+    /** A : génère un code à 6 caractères valide 10 min et l'affiche */
+    private void generateShareCode(String ownerUid) {
+        String code = generateRandomCode(6);
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        Map<String, Object> data = new HashMap<>();
+        data.put("ownerUid", ownerUid);
+        data.put("expiresAt", new Date(System.currentTimeMillis() + 10 * 60 * 1000L));
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("ownerId", ownerUserId);
-            data.put("sharedUserId", sharedUserId);
-
-            db.collection("users")
-                    .document(ownerUserId)
-                    .collection("shared_users")
-                    .document(sharedUserId)
-                    .set(data)
-                    .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(requireContext(), getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
-                        updateManageSharingSummary(auth.getCurrentUser());
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(requireContext(), getString(R.string.share_save_error), Toast.LENGTH_LONG).show();
-                        Log.e("Firestore", "Erreur lors de saveSharedUserId", e);
-                    });
-        }
+        db.collection("share_codes").document(code).set(data)
+                .addOnSuccessListener(aVoid -> {
+                    if (!isAdded()) return;
+                    new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                            .setTitle(getString(R.string.share_code_title))
+                            .setMessage(getString(R.string.share_code_message) + "\n\n" + code + "\n\n" + getString(R.string.share_code_expires))
+                            .setPositiveButton(getString(R.string.share_copy_code), (d, w) -> {
+                                android.content.ClipboardManager clipboard =
+                                        (android.content.ClipboardManager) requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("share_code", code));
+                                Toast.makeText(requireContext(), getString(R.string.share_code_copied), Toast.LENGTH_SHORT).show();
+                            })
+                            .setNegativeButton(getString(R.string.share_via), (d, w) -> {
+                                Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                                shareIntent.setType("text/plain");
+                                shareIntent.putExtra(Intent.EXTRA_TEXT, getString(R.string.share_code_invite) + " " + code);
+                                startActivity(Intent.createChooser(shareIntent, getString(R.string.share_id_with)));
+                            })
+                            .setNeutralButton(getString(R.string.cancel), null)
+                            .show();
+                })
+                .addOnFailureListener(e -> Toast.makeText(requireContext(), getString(R.string.share_save_error), Toast.LENGTH_SHORT).show());
     }
 
+    /** B : entre le code reçu pour rejoindre */
+    private void showJoinWithCodeDialog(String joinerUid) {
+        EditText input = new EditText(requireContext());
+        input.setHint(getString(R.string.share_enter_code_hint));
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+
+        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(getString(R.string.share_enter_code_title))
+                .setView(input)
+                .setPositiveButton(getString(R.string.save), (dialog, which) -> {
+                    String code = input.getText().toString().trim().toUpperCase();
+                    if (code.length() != 6) {
+                        Toast.makeText(requireContext(), getString(R.string.share_code_invalid), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    redeemShareCode(code, joinerUid);
+                })
+                .setNegativeButton(getString(R.string.cancel), null)
+                .show();
+    }
+
+    /** Valide le code, crée le partage bilatéral A↔B, supprime le code */
+    private void redeemShareCode(String code, String joinerUid) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("share_codes").document(code).get()
+                .addOnSuccessListener(doc -> {
+                    if (!isAdded()) return;
+                    if (!doc.exists()) {
+                        Toast.makeText(requireContext(), getString(R.string.share_code_not_found), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    Date expiresAt = doc.getDate("expiresAt");
+                    if (expiresAt == null || expiresAt.before(new Date())) {
+                        Toast.makeText(requireContext(), getString(R.string.share_code_expired), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String ownerUid = doc.getString("ownerUid");
+                    if (ownerUid == null || ownerUid.equals(joinerUid)) {
+                        Toast.makeText(requireContext(), getString(R.string.cant_share_with_yourself), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // B voit les notes de A
+                    Map<String, Object> bSeesA = new HashMap<>();
+                    bSeesA.put("ownerId", ownerUid);
+                    bSeesA.put("sharedUserId", ownerUid);
+                    db.collection("users").document(joinerUid)
+                            .collection("shared_users").document(ownerUid).set(bSeesA);
+
+                    // A voit les notes de B
+                    Map<String, Object> aSeesB = new HashMap<>();
+                    aSeesB.put("ownerId", joinerUid);
+                    aSeesB.put("sharedUserId", joinerUid);
+                    db.collection("users").document(ownerUid)
+                            .collection("shared_users").document(joinerUid).set(aSeesB)
+                            .addOnSuccessListener(aVoid -> {
+                                if (!isAdded()) return;
+                                db.collection("share_codes").document(code).delete();
+
+                                // Synchroniser les notes existantes dans les deux sens
+                                syncExistingNotes(ownerUid, joinerUid);
+                                syncExistingNotes(joinerUid, ownerUid);
+
+                                Toast.makeText(requireContext(), getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
+                                updateManageSharingSummary(auth.getCurrentUser());
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    if (!isAdded()) return;
+                    Toast.makeText(requireContext(), getString(R.string.share_save_error), Toast.LENGTH_LONG).show();
+                    Log.e("Firestore", "Erreur redeemShareCode", e);
+                });
+    }
+
+    private String generateRandomCode(int length) {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sans O,0,I,1 pour éviter confusions
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    /** Synchronise toutes les notes existantes de fromUid vers toUid */
+    private void syncExistingNotes(String fromUid, String toUid) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+        // IMPORTANT: Réinitialiser le lastSeenTimestamp AVANT de charger les notes
+        // pour que le listener Firestore retraite les notes anciennes
+        if (requireContext() != null) {
+            NotePreferences.saveLastSeenTimestamp(requireContext(), new Date(0));
+        }
+
+        db.collection("users").document(fromUid).collection("notes")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot == null || querySnapshot.isEmpty()) {
+                        return;
+                    }
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        db.collection("users").document(toUid).collection("notes")
+                                .document(doc.getId())
+                                .set(doc.getData(), com.google.firebase.firestore.SetOptions.merge());
+                    }
+                    Log.d("Sync", "Synchronized " + querySnapshot.size() + " notes from " + fromUid + " to " + toUid);
+                })
+                .addOnFailureListener(e -> Log.e("Sync", "Failed to sync notes", e));
+    }
 
 }
+

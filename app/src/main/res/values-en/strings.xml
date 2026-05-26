@@ -121,4 +121,21 @@
     <string name="theme_title">App theme</string>
     <string name="theme_summary">Choose light, dark or automatic</string>
 
+    <!-- Share codes -->
+    <string name="share_method_title">How to share?</string>
+    <string name="share_generate_code">Generate a share code</string>
+    <string name="share_enter_code">Join with a code</string>
+    <string name="share_code_title">Your share code</string>
+    <string name="share_code_message">Send this code to the other user. Valid for 10 minutes:</string>
+    <string name="share_code_expires">This code expires in 10 minutes.</string>
+    <string name="share_code_invite">Join me on CosmoNote with the code:</string>
+    <string name="share_enter_code_title">Join with a code</string>
+    <string name="share_enter_code_hint">6-character code (e.g. AB3X9K)</string>
+    <string name="share_code_invalid">The code must be exactly 6 characters</string>
+    <string name="share_code_not_found">Code not found. Please check and try again.</string>
+    <string name="share_code_expired">This code has expired. Please request a new one.</string>
+    <string name="share_copy_code">Copy</string>
+    <string name="share_via">Share via…</string>
+    <string name="share_code_copied">Code copied to clipboard</string>
+
 </resources>

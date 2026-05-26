@@ -629,7 +629,10 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         // 1) Sauvegarde la note en local
         saveRemoteNoteLocally(doc);
 
-        // 2) Prépare et affiche la notification
+        // 2) Recharge la liste pour afficher immédiatement la note
+        loadNotesFromLocalDatabase();
+
+        // 3) Prépare et affiche la notification
         NotificationHelper.showNoteNotification(
                 getApplicationContext(),
                 getApplicationContext().getString(R.string.new_note_from_distant),
