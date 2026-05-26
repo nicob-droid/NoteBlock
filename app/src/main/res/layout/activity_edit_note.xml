@@ -5,7 +5,8 @@
     android:id="@+id/coordinatorLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="8dp">
+    android:padding="8dp"
+    android:fitsSystemWindows="true">
 
     <!-- ScrollView pour pouvoir scroller si contenu long -->
     <ScrollView
