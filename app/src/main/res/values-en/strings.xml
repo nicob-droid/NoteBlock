@@ -24,6 +24,11 @@
     <string name="delete_all_notes_confirmation_title">Remove all</string>
     <string name="delete_all_notes_confirmation_message">Are you sure ?</string>
     <string name="all_notes_deleted">All notes have been removed</string>
+    <string name="delete_current_tab_confirmation_title">Delete notes in tab</string>
+    <string name="delete_local_notes_confirmation_message">Delete all local notes?</string>
+    <string name="delete_synced_notes_confirmation_message">Delete all synced notes?</string>
+    <string name="local_notes_deleted">Local notes deleted</string>
+    <string name="synced_notes_deleted">Synced notes deleted</string>
     <string name="title">Title</string>
     <string name="note_content">Note content</string>
     <string name="save">Save</string>
@@ -150,5 +155,12 @@
     <!-- Notes tabs -->
     <string name="tab_local_notes">Local</string>
     <string name="tab_synced_notes">Synced</string>
+
+    <!-- Soft lock notes -->
+    <string name="note_locked_unavailable">This note is currently being edited.</string>
+    <string name="note_locked_by_user">Locked by %1$s</string>
+    <string name="someone_label">someone</string>
+    <string name="note_lock_take_failed">Unable to open: note is being edited by %1$s.</string>
+    <string name="note_lock_take_failed_generic">Unable to open this note right now.</string>
 
 </resources>

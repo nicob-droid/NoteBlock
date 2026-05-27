@@ -23,10 +23,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.DiffUtil;
-import androidx.recyclerview.widget.ItemTouchHelper;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import com.example.cosmonote.Settings.SettingsPreferencesActivity;
 import com.example.cosmonote.Utils.NotePreferences;
 import com.example.cosmonote.Utils.NotificationHelper;
@@ -39,27 +35,34 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.Timestamp;
+import com.google.android.gms.tasks.Tasks;
 
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteClickListener {
     private static final String TAG = "NotesActivity";
     public static final String EXTRA_NOTE_ID = "note_id";
     public static final String EXTRA_NOTE_COLOR = "note_color";
     public static final String EXTRA_NOTE_POSITION = "note_position";
+    public static final String EXTRA_CREATE_SYNCED = "create_synced";
     private static final int REQUEST_CODE_POST_NOTIF = 1001;
     private NoteDatabase db;
     private final List<ListenerRegistration> activeListeners = new ArrayList<>();
@@ -67,6 +70,8 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private BroadcastReceiver reloadReceiver;
     private ImageView notesBackgroundImageView;
     private NotesTabsAdapter tabsAdapter;
+    private final Map<String, NoteLockState> activeNoteLocks = new ConcurrentHashMap<>();
+    private String lastListenerUserId;
 
 
     @Override
@@ -104,17 +109,33 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         fab.setOnClickListener(v -> {
             // Ouvre activité d'édition pour créer une nouvelle note
             Intent intent = new Intent(this, EditNoteActivity.class);
+            boolean shouldCreateSynced = tabsAdapter != null
+                    && tabsAdapter.isShowingSyncedTab()
+                    && viewPager.getCurrentItem() == 1;
+            intent.putExtra(EXTRA_CREATE_SYNCED, shouldCreateSynced);
+
             startActivity(intent);
         });
 
         // Init du bouton supprimer tout
         FloatingActionButton fabDeleteAll = findViewById(R.id.fab_delete_all);
         fabDeleteAll.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(getString(R.string.delete_all_notes_confirmation_title))
-                .setMessage(getString(R.string.delete_all_notes_confirmation_message))
-                .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
+                .setTitle(getString(R.string.delete_current_tab_confirmation_title))
+                .setMessage(getDeleteConfirmationMessageForCurrentTab())
+                .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteNotesInCurrentTab())
                 .setNegativeButton(getString(R.string.no), null)
                 .show());
+    }
+
+    private boolean isSyncedTabSelected() {
+        ViewPager2 viewPager = findViewById(R.id.viewpager_notes);
+        return tabsAdapter != null && tabsAdapter.isShowingSyncedTab() && viewPager.getCurrentItem() == 1;
+    }
+
+    private String getDeleteConfirmationMessageForCurrentTab() {
+        return isSyncedTabSelected()
+                ? getString(R.string.delete_synced_notes_confirmation_message)
+                : getString(R.string.delete_local_notes_confirmation_message);
     }
 
     private void applySavedBackgroundImage() {
@@ -184,7 +205,20 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         IntentFilter filter = new IntentFilter("com.cosmonote.app.RELOAD_NOTES");
         ContextCompat.registerReceiver(this, reloadReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
-        if (activeListeners.isEmpty()) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        String currentUid = currentUser != null ? currentUser.getUid() : null;
+        boolean authStateChanged = !Objects.equals(lastListenerUserId, currentUid);
+
+        if (authStateChanged) {
+            for (ListenerRegistration l : activeListeners) {
+                l.remove();
+            }
+            activeListeners.clear();
+            activeNoteLocks.clear();
+            lastListenerUserId = currentUid;
+            refreshAllNotes();
+            startFirestoreListeners();
+        } else if (activeListeners.isEmpty()) {
             startFirestoreListeners();
         }
     }
@@ -207,6 +241,10 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         return user != null;
     }
 
+    public Map<String, NoteLockState> getActiveNoteLocks() {
+        return new HashMap<>(activeNoteLocks);
+    }
+
     private void startFirestoreListeners() {
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
         if (firebaseUser != null) {
@@ -214,7 +252,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             if (tabsAdapter != null && !tabsAdapter.isShowingSyncedTab()) {
                 tabsAdapter.setShowSyncedTab(true);
             }
-            
+
+            startNoteLocksListener();
+
             String currentUserId = firebaseUser.getUid();
             fetchNotesFromFirestore(this, currentUserId);
             startListeningNotes(currentUserId);
@@ -246,6 +286,49 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             if (tabsAdapter != null && tabsAdapter.isShowingSyncedTab()) {
                 tabsAdapter.setShowSyncedTab(false);
             }
+            activeNoteLocks.clear();
+            refreshAllNotes();
+        }
+    }
+
+    private void startNoteLocksListener() {
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        try {
+            ListenerRegistration lockListener = firestore
+                    .collection("note_locks")
+                    .addSnapshotListener((snapshots, error) -> {
+                        if (error != null) {
+                            Log.w(TAG, "Lock listener failed", error);
+                            return;
+                        }
+                        if (snapshots == null) {
+                            return;
+                        }
+
+                        long now = System.currentTimeMillis();
+                        Map<String, NoteLockState> newLocks = new HashMap<>();
+                        for (DocumentSnapshot doc : snapshots.getDocuments()) {
+                            String firebaseDocId = doc.getString("firebaseDocId");
+                            String lockedByUid = doc.getString("lockedByUid");
+                            String lockedByName = doc.getString("lockedByName");
+                            Timestamp expiresAt = doc.getTimestamp("expiresAt");
+                            long expiresAtMillis = expiresAt != null ? expiresAt.toDate().getTime() : 0L;
+
+                            if (firebaseDocId == null || firebaseDocId.trim().isEmpty()) {
+                                firebaseDocId = doc.getId();
+                            }
+                            if (!firebaseDocId.trim().isEmpty() && expiresAtMillis > now) {
+                                newLocks.put(firebaseDocId, new NoteLockState(lockedByUid, lockedByName, expiresAtMillis));
+                            }
+                        }
+
+                        activeNoteLocks.clear();
+                        activeNoteLocks.putAll(newLocks);
+                        refreshAllNotes();
+                    });
+            activeListeners.add(lockListener);
+        } catch (Exception e) {
+            Log.w(TAG, "Impossible de démarrer le lock listener", e);
         }
     }
 
@@ -407,27 +490,86 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     }
 
 
-    private void deleteAllNotes() {
+    private void deleteNotesInCurrentTab() {
+        final boolean deleteSyncedTab = isSyncedTabSelected();
+
         new Thread(() -> {
-            db.deleteAllNotes();
-            // Supprimer aussi sur Firestore si connecté
-            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            if (currentUser != null) {
-                String userId = currentUser.getUid();
-                FirebaseFirestore.getInstance()
-                        .collection("users")
-                        .document(userId)
-                        .collection("notes")
-                        .get()
-                        .addOnSuccessListener(querySnapshot -> {
-                            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                                doc.getReference().delete();
-                            }
-                        });
+            List<Note> allNotes = db.getAllNotes();
+            List<Note> targetNotes = new ArrayList<>();
+
+            for (Note n : allNotes) {
+                String docId = n.getFirebaseDocId();
+                boolean isSynced = docId != null && !docId.trim().isEmpty();
+                if (deleteSyncedTab == isSynced) {
+                    targetNotes.add(n);
+                }
             }
+
+            Set<String> syncedDocIdsToDelete = new HashSet<>();
+            for (Note target : targetNotes) {
+                db.deleteNoteById(target.getId());
+                String docId = target.getFirebaseDocId();
+                if (docId != null && !docId.trim().isEmpty()) {
+                    syncedDocIdsToDelete.add(docId);
+                }
+            }
+
+            // Pour l'onglet SYNCED, supprimer aussi les documents distants correspondants.
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (deleteSyncedTab && currentUser != null && !syncedDocIdsToDelete.isEmpty()) {
+                String userId = currentUser.getUid();
+                FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+                try {
+                    Set<String> ownerIds = new HashSet<>();
+                    ownerIds.add(userId);
+
+                    QuerySnapshot sharedUsersSnapshot = Tasks.await(
+                            firestore.collection("users")
+                                    .document(userId)
+                                    .collection("shared_users")
+                                    .get()
+                    );
+
+                    if (sharedUsersSnapshot != null) {
+                        for (DocumentSnapshot sharedDoc : sharedUsersSnapshot.getDocuments()) {
+                            String sharedUserId = sharedDoc.getString("sharedUserId");
+                            if (sharedUserId == null || sharedUserId.trim().isEmpty()) {
+                                sharedUserId = sharedDoc.getId();
+                            }
+                            if (!sharedUserId.trim().isEmpty()) {
+                                ownerIds.add(sharedUserId);
+                            }
+                        }
+                    }
+
+                    for (String ownerId : ownerIds) {
+                        try {
+                            for (String docIdToDelete : syncedDocIdsToDelete) {
+                                DocumentReference docRef = firestore.collection("users")
+                                        .document(ownerId)
+                                        .collection("notes")
+                                        .document(docIdToDelete);
+
+                                DocumentSnapshot snapshot = Tasks.await(docRef.get());
+                                if (snapshot.exists()) {
+                                    Tasks.await(docRef.delete());
+                                }
+                            }
+                        } catch (Exception ownerDeleteError) {
+                            Log.w(TAG, "Suppression Firestore partielle pour ownerId=" + ownerId, ownerDeleteError);
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur suppression Firestore (all notes)", e);
+                }
+            }
+
             runOnUiThread(() -> {
                 refreshAllNotes();
-                Toast.makeText(this, getString(R.string.all_notes_deleted), Toast.LENGTH_SHORT).show();
+                int messageRes = deleteSyncedTab
+                        ? R.string.synced_notes_deleted
+                        : R.string.local_notes_deleted;
+                Toast.makeText(this, getString(messageRes), Toast.LENGTH_SHORT).show();
             });
         }).start();
     }

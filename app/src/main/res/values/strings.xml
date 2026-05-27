@@ -25,6 +25,11 @@
     <string name="delete_all_notes_confirmation_title">Tout supprimer</string>
     <string name="delete_all_notes_confirmation_message">Êtes-vous sûr de vouloir supprimer toutes les notes ?</string>
     <string name="all_notes_deleted">Toutes les notes ont été supprimées</string>
+    <string name="delete_current_tab_confirmation_title">Supprimer les notes de l\'onglet</string>
+    <string name="delete_local_notes_confirmation_message">Supprimer toutes les notes locales ?</string>
+    <string name="delete_synced_notes_confirmation_message">Supprimer toutes les notes synchronisées ?</string>
+    <string name="local_notes_deleted">Notes locales supprimées</string>
+    <string name="synced_notes_deleted">Notes synchronisées supprimées</string>
     <string name="title">Titre</string>
     <string name="note_content">Contenu de la note</string>
     <string name="save">Sauvegarder</string>
@@ -152,5 +157,12 @@
     <!-- Onglets notes -->
     <string name="tab_local_notes">Locales</string>
     <string name="tab_synced_notes">Partagées</string>
+
+    <!-- Soft lock notes -->
+    <string name="note_locked_unavailable">Cette note est en cours d\'édition.</string>
+    <string name="note_locked_by_user">Verrouillée par %1$s</string>
+    <string name="someone_label">quelqu\'un</string>
+    <string name="note_lock_take_failed">Impossible d\'ouvrir: note en cours d\'édition par %1$s.</string>
+    <string name="note_lock_take_failed_generic">Impossible d\'ouvrir cette note pour le moment.</string>
 
 </resources>

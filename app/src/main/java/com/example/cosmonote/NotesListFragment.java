@@ -20,7 +20,9 @@ import com.google.firebase.auth.FirebaseUser;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteClickListener {
@@ -147,6 +149,14 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
         notesList.clear();
         notesList.addAll(filteredNotes);
         diffResult.dispatchUpdatesTo(adapter);
+
+        if (adapter != null) {
+            Map<String, NoteLockState> lockStates = new HashMap<>();
+            if (getActivity() instanceof NotesActivity) {
+                lockStates.putAll(((NotesActivity) getActivity()).getActiveNoteLocks());
+            }
+            adapter.setLockStates(lockStates);
+        }
     }
 
     private void updateItemPositionsInDatabase() {
@@ -175,4 +185,3 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
         }
     }
 }
-

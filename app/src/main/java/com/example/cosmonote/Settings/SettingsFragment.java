@@ -525,18 +525,21 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                     Map<String, Object> bSeesA = new HashMap<>();
                     bSeesA.put("ownerId", ownerUid);
                     bSeesA.put("sharedUserId", ownerUid);
-                    db.collection("users").document(joinerUid)
-                            .collection("shared_users").document(ownerUid).set(bSeesA);
 
                     // A voit les notes de B
                     Map<String, Object> aSeesB = new HashMap<>();
                     aSeesB.put("ownerId", joinerUid);
                     aSeesB.put("sharedUserId", joinerUid);
-                    db.collection("users").document(ownerUid)
-                            .collection("shared_users").document(joinerUid).set(aSeesB)
+
+                    db.batch()
+                            .set(db.collection("users").document(joinerUid)
+                                    .collection("shared_users").document(ownerUid), bSeesA)
+                            .set(db.collection("users").document(ownerUid)
+                                    .collection("shared_users").document(joinerUid), aSeesB)
+                            .delete(db.collection("share_codes").document(code))
+                            .commit()
                             .addOnSuccessListener(aVoid -> {
                                 if (!isAdded()) return;
-                                db.collection("share_codes").document(code).delete();
 
                                 // Synchroniser les notes existantes dans les deux sens
                                 syncExistingNotes(ownerUid, joinerUid);
@@ -544,6 +547,11 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
 
                                 Toast.makeText(requireContext(), getString(R.string.share_saved), Toast.LENGTH_SHORT).show();
                                 updateManageSharingSummary(auth.getCurrentUser());
+                            })
+                            .addOnFailureListener(e -> {
+                                if (!isAdded()) return;
+                                Toast.makeText(requireContext(), getString(R.string.share_save_error), Toast.LENGTH_LONG).show();
+                                Log.e("Firestore", "Erreur création partage bilatéral", e);
                             });
                 })
                 .addOnFailureListener(e -> {

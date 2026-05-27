@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isSharedWith(userId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/shared_users/$(userId));
+    }
+
+    function canAccessUserNotes(userId) {
+      return isOwner(userId) || isSharedWith(userId);
+    }
+
+    function requestedNoteDocId() {
+      return request.resource.data.firebaseDocId != null
+        ? request.resource.data.firebaseDocId
+        : resource.data.firebaseDocId;
+    }
+
+    function lockCanBeBypassed(noteDocId) {
+      return !exists(/databases/$(database)/documents/note_locks/$(noteDocId))
+        || get(/databases/$(database)/documents/note_locks/$(noteDocId)).data.expiresAt < request.time
+        || get(/databases/$(database)/documents/note_locks/$(noteDocId)).data.lockedByUid == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow read: if canAccessUserNotes(userId);
+      allow write: if isOwner(userId);
+
+      match /notes/{noteId} {
+        allow read: if canAccessUserNotes(userId);
+
+        // Toute écriture de note est refusée si un autre utilisateur tient un lock actif.
+        allow create, update, delete: if canAccessUserNotes(userId)
+          && lockCanBeBypassed(requestedNoteDocId());
+      }
+
+      match /shared_users/{sharedUserId} {
+        allow read: if isOwner(userId) || (signedIn() && request.auth.uid == sharedUserId);
+
+        // Le propriétaire gère sa liste normalement.
+        // Le "joiner" (docId = son uid) peut aussi créer/mettre à jour son entrée
+        // pour établir le partage bilatéral lors du redeem code.
+        allow create, update: if isOwner(userId)
+          || (signedIn()
+            && request.auth.uid == sharedUserId
+            && request.resource.data.sharedUserId == request.auth.uid
+            && request.resource.data.ownerId == request.auth.uid);
+
+        // Propriétaire ou joiner peuvent retirer le lien.
+        allow delete: if isOwner(userId)
+          || (signedIn()
+            && request.auth.uid == sharedUserId
+            && resource.data.sharedUserId == request.auth.uid);
+      }
+    }
+
+    match /share_codes/{code} {
+      allow read, create, update, delete: if signedIn();
+    }
+
+    match /note_locks/{noteDocId} {
+      allow read: if signedIn();
+
+      // Le lock doit être tenu par l'utilisateur connecté et auto-expirer.
+      allow create, update: if signedIn()
+        && request.resource.data.lockedByUid == request.auth.uid
+        && request.resource.data.firebaseDocId == noteDocId
+        && request.resource.data.expiresAt > request.time;
+
+      // Seul le titulaire peut libérer explicitement son lock.
+      allow delete: if signedIn()
+        && resource.data.lockedByUid == request.auth.uid;
+    }
+  }
+}
+
