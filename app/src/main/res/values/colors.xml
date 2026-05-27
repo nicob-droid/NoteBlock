@@ -7,7 +7,7 @@
     <color name="colorSecondary">#2780d1</color>
     <color name="colorSecondaryVariant">#47a0d1</color>
     <color name="colorOnSecondary">#FFFFFFFF</color>
-    <color name="colorWindowBackground">#FFFFFFFF</color> <!-- Blanc pour mode clair -->
+    <color name="colorWindowBackground">#FFE5E7FA</color> <!-- Fond clair adouci -->
     <color name="colorTextPrimary">#FF000000</color>
     <color name="colorTextSecondary">#FF888888</color>
 </resources>

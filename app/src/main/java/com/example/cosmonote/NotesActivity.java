@@ -29,9 +29,6 @@ import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.tabs.TabLayout;
-import com.google.android.material.tabs.TabLayoutMediator;
-import androidx.viewpager2.widget.ViewPager2;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
@@ -62,6 +59,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     public static final String EXTRA_NOTE_ID = "note_id";
     public static final String EXTRA_NOTE_COLOR = "note_color";
     public static final String EXTRA_NOTE_POSITION = "note_position";
+    public static final String EXTRA_NOTE_OWNER_UID = "note_owner_uid";
     public static final String EXTRA_CREATE_SYNCED = "create_synced";
     private static final int REQUEST_CODE_POST_NOTIF = 1001;
     private NoteDatabase db;
@@ -69,7 +67,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private Date lastSeenNoteTimestamp;
     private BroadcastReceiver reloadReceiver;
     private ImageView notesBackgroundImageView;
-    private NotesTabsAdapter tabsAdapter;
+    private NotesListFragment notesListFragment;
     private final Map<String, NoteLockState> activeNoteLocks = new ConcurrentHashMap<>();
     private String lastListenerUserId;
 
@@ -87,31 +85,23 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         // Init database
         db = new NoteDatabase(this);
 
-        // Init ViewPager2 avec TabLayout
-        ViewPager2 viewPager = findViewById(R.id.viewpager_notes);
-        TabLayout tabLayout = findViewById(R.id.tabs_notes);
-
-        // Déterminer si on doit afficher l'onglet synchronisé
-        boolean showSyncedTab = isSyncingConfigured();
-        tabsAdapter = new NotesTabsAdapter(this, showSyncedTab);
-        viewPager.setAdapter(tabsAdapter);
-
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            if (position == 0) {
-                tab.setText(R.string.tab_local_notes);
-            } else {
-                tab.setText(R.string.tab_synced_notes);
-            }
-        }).attach();
+        if (savedInstanceState == null) {
+            notesListFragment = NotesListFragment.newInstanceAll();
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.notes_fragment_container, notesListFragment)
+                    .commit();
+        } else {
+            notesListFragment = (NotesListFragment) getSupportFragmentManager()
+                    .findFragmentById(R.id.notes_fragment_container);
+        }
 
         // Init du floating button
         FloatingActionButton fab = findViewById(R.id.fab_add_note);
         fab.setOnClickListener(v -> {
             // Ouvre activité d'édition pour créer une nouvelle note
             Intent intent = new Intent(this, EditNoteActivity.class);
-            boolean shouldCreateSynced = tabsAdapter != null
-                    && tabsAdapter.isShowingSyncedTab()
-                    && viewPager.getCurrentItem() == 1;
+            boolean shouldCreateSynced = isSyncingConfigured();
             intent.putExtra(EXTRA_CREATE_SYNCED, shouldCreateSynced);
 
             startActivity(intent);
@@ -120,22 +110,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         // Init du bouton supprimer tout
         FloatingActionButton fabDeleteAll = findViewById(R.id.fab_delete_all);
         fabDeleteAll.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(getString(R.string.delete_current_tab_confirmation_title))
-                .setMessage(getDeleteConfirmationMessageForCurrentTab())
-                .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteNotesInCurrentTab())
+                .setTitle(getString(R.string.delete_all_notes_confirmation_title))
+                .setMessage(getString(R.string.delete_all_notes_confirmation_message))
+                .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
                 .setNegativeButton(getString(R.string.no), null)
                 .show());
-    }
-
-    private boolean isSyncedTabSelected() {
-        ViewPager2 viewPager = findViewById(R.id.viewpager_notes);
-        return tabsAdapter != null && tabsAdapter.isShowingSyncedTab() && viewPager.getCurrentItem() == 1;
-    }
-
-    private String getDeleteConfirmationMessageForCurrentTab() {
-        return isSyncedTabSelected()
-                ? getString(R.string.delete_synced_notes_confirmation_message)
-                : getString(R.string.delete_local_notes_confirmation_message);
     }
 
     private void applySavedBackgroundImage() {
@@ -166,18 +145,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         super.onResume();
 
         applySavedBackgroundImage();
-
-        // Vérifier si l'état de connexion a changé et mettre à jour les onglets
-        boolean shouldShowSyncedTab = isSyncingConfigured();
-        if (tabsAdapter != null) {
-            if (shouldShowSyncedTab && !tabsAdapter.isShowingSyncedTab()) {
-                // L'utilisateur vient de se connecter
-                tabsAdapter.setShowSyncedTab(true);
-            } else if (!shouldShowSyncedTab && tabsAdapter.isShowingSyncedTab()) {
-                // L'utilisateur vient de se déconnecter
-                tabsAdapter.setShowSyncedTab(false);
-            }
-        }
 
         refreshAllNotes();
 
@@ -224,15 +191,13 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     }
 
     private void refreshAllNotes() {
-        if (tabsAdapter != null) {
-            NotesListFragment local = tabsAdapter.getLocalNotesFragment();
-            NotesListFragment synced = tabsAdapter.getSyncedNotesFragment();
-            if (local != null) {
-                local.refreshNotes();
-            }
-            if (synced != null) {
-                synced.refreshNotes();
-            }
+        if (notesListFragment == null) {
+            notesListFragment = (NotesListFragment) getSupportFragmentManager()
+                    .findFragmentById(R.id.notes_fragment_container);
+        }
+
+        if (notesListFragment != null) {
+            notesListFragment.refreshNotes();
         }
     }
 
@@ -248,16 +213,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private void startFirestoreListeners() {
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
         if (firebaseUser != null) {
-            // Mettre à jour l'affichage de l'onglet synced si nécessaire
-            if (tabsAdapter != null && !tabsAdapter.isShowingSyncedTab()) {
-                tabsAdapter.setShowSyncedTab(true);
-            }
-
             startNoteLocksListener();
 
             String currentUserId = firebaseUser.getUid();
-            fetchNotesFromFirestore(this, currentUserId);
-            startListeningNotes(currentUserId);
+            fetchNotesFromFirestore(this, currentUserId, currentUserId);
+            startListeningNotes(currentUserId, currentUserId);
             FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(currentUserId)
@@ -271,8 +231,8 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         && !sharedUserId.isEmpty()
                                         && !sharedUserId.equals(currentUserId)) {
                                     try {
-                                        fetchNotesFromFirestore(this, sharedUserId);
-                                        startListeningNotes(sharedUserId);
+                                        fetchNotesFromFirestore(this, sharedUserId, currentUserId);
+                                        startListeningNotes(sharedUserId, currentUserId);
                                     } catch (Exception e) {
                                         Log.w(TAG, "Impossible de démarrer le listener pour sharedUserId: " + sharedUserId, e);
                                     }
@@ -282,10 +242,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                     })
                     .addOnFailureListener(e -> Log.w(TAG, "Impossible de récupérer sharedUserId", e));
         } else {
-            // Utilisateur non connecté - masquer l'onglet synchronized
-            if (tabsAdapter != null && tabsAdapter.isShowingSyncedTab()) {
-                tabsAdapter.setShowSyncedTab(false);
-            }
             activeNoteLocks.clear();
             refreshAllNotes();
         }
@@ -392,6 +348,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         intent.putExtra(EXTRA_NOTE_ID, note.getId()); // ou autre méthode pour identifier la note
         intent.putExtra(EXTRA_NOTE_COLOR, note.getColor());
         intent.putExtra(EXTRA_NOTE_POSITION, note.getPosition());
+        intent.putExtra(EXTRA_NOTE_OWNER_UID, note.getOwnerUid());
         startActivity(intent);
     }
 
@@ -456,7 +413,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 throw new RuntimeException(e);
             }
             // Créer une note avec la nouvelle couleur pour Firestore
-            Note updatedNote = new Note(note.getId(), note.getFirebaseDocId(),
+            Note updatedNote = new Note(note.getId(), note.getFirebaseDocId(), note.getOwnerUid(),
                     note.getTitle(), note.getContent(), newColor, note.getPosition());
             syncNoteColorToFirestore(updatedNote);
             runOnUiThread(this::refreshAllNotes);
@@ -471,8 +428,13 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }
 
         String userId = currentUser.getUid();
+        String ownerUid = note.getOwnerUid();
+        if (ownerUid == null || ownerUid.trim().isEmpty()) {
+            ownerUid = userId;
+        }
         Map<String, Object> noteData = new HashMap<>();
         noteData.put("firebaseDocId", note.getFirebaseDocId());
+        noteData.put("ownerUid", ownerUid);
         noteData.put("title", note.getTitle());
         noteData.put("content", note.getContent());
         noteData.put("color", note.getColor());
@@ -481,7 +443,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
         FirebaseFirestore.getInstance()
                 .collection("users")
-                .document(userId)
+                .document(ownerUid)
                 .collection("notes")
                 .document(note.getFirebaseDocId())
                 .set(noteData, com.google.firebase.firestore.SetOptions.merge())
@@ -490,94 +452,115 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     }
 
 
-    private void deleteNotesInCurrentTab() {
-        final boolean deleteSyncedTab = isSyncedTabSelected();
-
+    private void deleteAllNotes() {
         new Thread(() -> {
             List<Note> allNotes = db.getAllNotes();
-            List<Note> targetNotes = new ArrayList<>();
-
-            for (Note n : allNotes) {
-                String docId = n.getFirebaseDocId();
-                boolean isSynced = docId != null && !docId.trim().isEmpty();
-                if (deleteSyncedTab == isSynced) {
-                    targetNotes.add(n);
-                }
-            }
-
-            Set<String> syncedDocIdsToDelete = new HashSet<>();
-            for (Note target : targetNotes) {
-                db.deleteNoteById(target.getId());
-                String docId = target.getFirebaseDocId();
-                if (docId != null && !docId.trim().isEmpty()) {
-                    syncedDocIdsToDelete.add(docId);
-                }
-            }
-
-            // Pour l'onglet SYNCED, supprimer aussi les documents distants correspondants.
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            if (deleteSyncedTab && currentUser != null && !syncedDocIdsToDelete.isEmpty()) {
-                String userId = currentUser.getUid();
-                FirebaseFirestore firestore = FirebaseFirestore.getInstance();
-                try {
-                    Set<String> ownerIds = new HashSet<>();
-                    ownerIds.add(userId);
+            FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+            Set<String> fallbackOwnerIds = new HashSet<>();
+            if (currentUser != null) {
+                fallbackOwnerIds = loadFallbackOwnerIds(firestore, currentUser.getUid());
+            }
 
-                    QuerySnapshot sharedUsersSnapshot = Tasks.await(
-                            firestore.collection("users")
-                                    .document(userId)
-                                    .collection("shared_users")
-                                    .get()
-                    );
+            int failedRemoteDeletes = 0;
+            for (Note note : allNotes) {
+                String docId = note.getFirebaseDocId();
+                if (docId == null || docId.trim().isEmpty()) {
+                    db.deleteNoteById(note.getId());
+                    continue;
+                }
 
-                    if (sharedUsersSnapshot != null) {
-                        for (DocumentSnapshot sharedDoc : sharedUsersSnapshot.getDocuments()) {
-                            String sharedUserId = sharedDoc.getString("sharedUserId");
-                            if (sharedUserId == null || sharedUserId.trim().isEmpty()) {
-                                sharedUserId = sharedDoc.getId();
-                            }
-                            if (!sharedUserId.trim().isEmpty()) {
-                                ownerIds.add(sharedUserId);
-                            }
-                        }
-                    }
+                if (currentUser == null) {
+                    failedRemoteDeletes++;
+                    continue;
+                }
 
-                    for (String ownerId : ownerIds) {
-                        try {
-                            for (String docIdToDelete : syncedDocIdsToDelete) {
-                                DocumentReference docRef = firestore.collection("users")
-                                        .document(ownerId)
-                                        .collection("notes")
-                                        .document(docIdToDelete);
+                boolean deletedRemotely = deleteRemoteNoteFromFirestore(
+                        firestore,
+                        docId,
+                        note.getOwnerUid(),
+                        fallbackOwnerIds
+                );
 
-                                DocumentSnapshot snapshot = Tasks.await(docRef.get());
-                                if (snapshot.exists()) {
-                                    Tasks.await(docRef.delete());
-                                }
-                            }
-                        } catch (Exception ownerDeleteError) {
-                            Log.w(TAG, "Suppression Firestore partielle pour ownerId=" + ownerId, ownerDeleteError);
-                        }
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Erreur suppression Firestore (all notes)", e);
+                if (deletedRemotely) {
+                    db.deleteNoteById(note.getId());
+                } else {
+                    failedRemoteDeletes++;
                 }
             }
 
+            int finalFailedRemoteDeletes = failedRemoteDeletes;
             runOnUiThread(() -> {
                 refreshAllNotes();
-                int messageRes = deleteSyncedTab
-                        ? R.string.synced_notes_deleted
-                        : R.string.local_notes_deleted;
-                Toast.makeText(this, getString(messageRes), Toast.LENGTH_SHORT).show();
+                if (finalFailedRemoteDeletes == 0) {
+                    Toast.makeText(this, getString(R.string.all_notes_deleted), Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
+                }
             });
         }).start();
     }
 
-    private void fetchNotesFromFirestore(Context context, String userId) {
+    private Set<String> loadFallbackOwnerIds(FirebaseFirestore firestore, String currentUserId) {
+        Set<String> fallbackOwnerIds = new HashSet<>();
+        fallbackOwnerIds.add(currentUserId);
+
+        try {
+            QuerySnapshot sharedUsersSnapshot = Tasks.await(
+                    firestore.collection("users")
+                            .document(currentUserId)
+                            .collection("shared_users")
+                            .get()
+            );
+            if (sharedUsersSnapshot != null) {
+                for (DocumentSnapshot sharedDoc : sharedUsersSnapshot.getDocuments()) {
+                    String sharedUserId = sharedDoc.getString("sharedUserId");
+                    if (sharedUserId == null || sharedUserId.trim().isEmpty()) {
+                        sharedUserId = sharedDoc.getId();
+                    }
+                    if (sharedUserId != null && !sharedUserId.trim().isEmpty()) {
+                        fallbackOwnerIds.add(sharedUserId.trim());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Impossible de charger shared_users pour suppression fallback", e);
+        }
+
+        return fallbackOwnerIds;
+    }
+
+    private boolean deleteRemoteNoteFromFirestore(FirebaseFirestore firestore, String firebaseDocId, String ownerUid, Set<String> fallbackOwnerIds) {
+        Set<String> candidateOwners = new HashSet<>();
+        if (ownerUid != null && !ownerUid.trim().isEmpty()) {
+            candidateOwners.add(ownerUid.trim());
+        }
+        candidateOwners.addAll(fallbackOwnerIds);
+
+        for (String candidateOwnerId : candidateOwners) {
+            DocumentReference docRef = firestore.collection("users")
+                    .document(candidateOwnerId)
+                    .collection("notes")
+                    .document(firebaseDocId);
+
+            try {
+                DocumentSnapshot snapshot = Tasks.await(docRef.get());
+                if (!snapshot.exists()) {
+                    continue;
+                }
+                Tasks.await(docRef.delete());
+                return true;
+            } catch (Exception e) {
+                Log.w(TAG, "Suppression Firestore partielle pour ownerId=" + candidateOwnerId + ", docId=" + firebaseDocId, e);
+            }
+        }
+
+        return false;
+    }
+
+    private void fetchNotesFromFirestore(Context context, String userId, String currentUserId) {
         FirebaseFirestore firebase = FirebaseFirestore.getInstance();
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        boolean isRemoteUser = currentUser != null && !userId.equals(currentUser.getUid());
+        boolean isRemoteUser = currentUserId != null && !userId.equals(currentUserId);
 
         firebase.collection("users")
                 .document(userId)
@@ -590,6 +573,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                             boolean hasLocalChanges = false;
                             for (QueryDocumentSnapshot document : task.getResult()) {
                                 String firebaseDocId = document.getString("firebaseDocId");
+                                if (!hasAccessToRemoteNote(document, currentUserId, isRemoteUser)) {
+                                    continue;
+                                }
 
                                 String title = document.getString("title");
                                 String content = document.getString("content");
@@ -626,8 +612,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         boolean contentChanged = !localNote.getTitle().equals(title) || !localNote.getContent().equals(content);
                                         boolean colorChanged = (localNote.getColor() != color);
                                         boolean positionChanged = (localNote.getPosition() != position);
-                                        if (contentChanged || colorChanged || positionChanged) {
-                                            Note updated = new Note(localNote.getId(), docId, title, content,
+                                        boolean ownerChanged = localNote.getOwnerUid() == null || !userId.equals(localNote.getOwnerUid());
+                                        if (contentChanged || colorChanged || positionChanged || ownerChanged) {
+                                            Note updated = new Note(localNote.getId(), docId, userId, title, content,
                                                     color, position);
                                             db.insertOrUpdateNote(updated);
                                             hasLocalChanges = true;
@@ -637,7 +624,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         if (firebaseDocId == null) {
                                             firebaseDocId = document.getId();
                                         }
-                                        Note note = new Note(0, firebaseDocId, title, content, color, position);
+                                        Note note = new Note(0, firebaseDocId, userId, title, content, color, position);
                                         db.insertOrUpdateNote(note);
                                         hasLocalChanges = true;
 
@@ -673,6 +660,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
         Map<String, Object> noteData = new HashMap<>();
         noteData.put("firebaseDocId", firebaseDocId);
+        noteData.put("ownerUid", userId);
         noteData.put("id", localNote.getId());
         noteData.put("title", localNote.getTitle());
         noteData.put("content", localNote.getContent());
@@ -700,15 +688,14 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 .addOnFailureListener(e -> Log.e(TAG, "Erreur migration Firestore", e));
     }
 
-    private void startListeningNotes(String userId) {
+    private void startListeningNotes(String userId, String currentUserId) {
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
 
         // Charger le dernier timestamp enregistré
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         Log.d(TAG, "lastSeenNoteTimestamp = " + lastSeenNoteTimestamp);
 
-        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        boolean isRemoteUser = currentUser != null && !userId.equals(currentUser.getUid());
+        boolean isRemoteUser = currentUserId != null && !userId.equals(currentUserId);
 
         // Ne pas écouter ses propres notes (elles sont déjà sauvées localement à la création)
         if (!isRemoteUser) {
@@ -731,6 +718,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                 DocumentSnapshot doc = dc.getDocument();
                                 String firebaseDocId = doc.getString("firebaseDocId");
                                 if (firebaseDocId == null) firebaseDocId = doc.getId();
+                                if (!hasAccessToRemoteNote(doc, currentUserId, isRemoteUser)) {
+                                    continue;
+                                }
 
                                 switch (dc.getType()) {
                                     case ADDED:
@@ -738,7 +728,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         if (db.noteExistsByFirebaseDocId(firebaseDocId)) {
                                             // La note existe déjà : mettre à jour seulement si nécessaire
                                             // (couvre le cas où la couleur a changé pendant qu'on était déconnecté)
-                                            boolean updated = updateRemoteNoteLocally(doc, firebaseDocId);
+                                            boolean updated = updateRemoteNoteLocally(doc, firebaseDocId, userId);
                                             if (updated) {
                                                 Log.d(TAG, "Note ADDED déjà présente, mise à jour silencieuse: " + firebaseDocId);
                                             }
@@ -746,7 +736,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         }
                                         // Note absente localement : l'ajouter avec notification
                                         Log.d(TAG, "Nouvelle note distante détectée: " + firebaseDocId);
-                                        onRemoteNoteAdded(doc);
+                                        onRemoteNoteAdded(doc, userId);
                                         // Mettre à jour le timestamp si possible
                                         Object timestampObj = doc.get("timestamp");
                                         Date createdDate = null;
@@ -765,7 +755,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
                                     case MODIFIED:
                                         // Mettre à jour la note locale (couleur, contenu, etc.)
-                                        if (updateRemoteNoteLocally(doc, firebaseDocId)) {
+                                        if (updateRemoteNoteLocally(doc, firebaseDocId, userId)) {
                                             NotificationHelper.showNoteNotification(
                                                     getApplicationContext(),
                                                     "Note modifiée",
@@ -797,9 +787,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
 
 
-    private void onRemoteNoteAdded(DocumentSnapshot doc) {
+    private void onRemoteNoteAdded(DocumentSnapshot doc, String ownerUid) {
         // 1) Sauvegarde la note en local
-        saveRemoteNoteLocally(doc);
+        saveRemoteNoteLocally(doc, ownerUid);
 
         // 2) Recharge la liste pour afficher immédiatement la note
         refreshAllNotes();
@@ -818,7 +808,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
      * Déchiffre le DocumentSnapshot reçu de Firestore et l'insère ou met à jour
      * la note dans ta base locale, puis rafraîchit l'affichage.
      */
-    private boolean updateRemoteNoteLocally(DocumentSnapshot doc, String firebaseDocId) {
+    private boolean updateRemoteNoteLocally(DocumentSnapshot doc, String firebaseDocId, String ownerUid) {
         try {
             String title = doc.getString("title");
             String content = doc.getString("content");
@@ -831,7 +821,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
             if (localNote == null) {
                 // La note n'existe pas encore localement : l'insérer
-                Note note = new Note(0, firebaseDocId, title, content, color, position);
+                Note note = new Note(0, firebaseDocId, ownerUid, title, content, color, position);
                 db.insertOrUpdateNote(note);
                 runOnUiThread(this::refreshAllNotes);
                 Log.d(TAG, "Note distante ajoutée localement: " + firebaseDocId + " couleur=" + color);
@@ -841,12 +831,13 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 boolean sameContent = java.util.Objects.equals(localNote.getContent(), content);
                 boolean sameColor = localNote.getColor() == color;
                 boolean samePosition = localNote.getPosition() == position;
+                boolean sameOwner = java.util.Objects.equals(localNote.getOwnerUid(), ownerUid);
 
-                if (sameTitle && sameContent && sameColor && samePosition) {
+                if (sameTitle && sameContent && sameColor && samePosition && sameOwner) {
                     return false;
                 }
 
-                Note updated = new Note(localNote.getId(), firebaseDocId, title, content, color, position);
+                Note updated = new Note(localNote.getId(), firebaseDocId, ownerUid, title, content, color, position);
                 db.insertOrUpdateNote(updated);
                 runOnUiThread(this::refreshAllNotes);
                 Log.d(TAG, "Note distante mise à jour localement: " + firebaseDocId + " couleur=" + color);
@@ -871,7 +862,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }
     }
 
-    private void saveRemoteNoteLocally(DocumentSnapshot doc) {
+    private void saveRemoteNoteLocally(DocumentSnapshot doc, String ownerUid) {
         String firebaseDocId = doc.getString("firebaseDocId");
         if (firebaseDocId == null) {
             // Fallback: utiliser l'ID du document Firestore
@@ -890,7 +881,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         int position = positionObj.intValue();
 
         try {
-            Note note = new Note(0, firebaseDocId, title, content, color, position);
+            Note note = new Note(0, firebaseDocId, ownerUid, title, content, color, position);
             db.insertOrUpdateNote(note);
 
             // Recharge la liste dans l'UI
@@ -899,6 +890,24 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         } catch (Exception e) {
             Log.e(TAG, "Erreur décrypt/save local", e);
         }
+    }
+
+    private boolean hasAccessToRemoteNote(DocumentSnapshot doc, String currentUserId, boolean isRemoteUser) {
+        if (!isRemoteUser) {
+            return true;
+        }
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+            return false;
+        }
+
+        Object sharedWithObj = doc.get("sharedWith");
+        if (sharedWithObj instanceof Map) {
+            Object value = ((Map<?, ?>) sharedWithObj).get(currentUserId);
+            return Boolean.TRUE.equals(value);
+        }
+
+        // Compatibilité migration: anciennes notes sans sharedWith restent visibles.
+        return true;
     }
 
 }

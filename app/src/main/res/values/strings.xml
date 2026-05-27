@@ -165,4 +165,15 @@
     <string name="note_lock_take_failed">Impossible d\'ouvrir: note en cours d\'édition par %1$s.</string>
     <string name="note_lock_take_failed_generic">Impossible d\'ouvrir cette note pour le moment.</string>
 
+    <!-- Partage par note -->
+    <string name="share_note_actions_title">Partager la note</string>
+    <string name="share_note_text_option">Partager le texte</string>
+    <string name="manage_note_access_option">Gérer l\'accès</string>
+    <string name="manage_note_access_requires_synced">Synchronisez d\'abord cette note pour gérer l\'accès.</string>
+    <string name="manage_note_access_owner_only">Seul le propriétaire peut gérer l\'accès.</string>
+    <string name="manage_note_access_dialog_title">Qui peut accéder à cette note ?</string>
+    <string name="note_access_saved">Accès à la note mis à jour</string>
+    <string name="note_access_save_error">Impossible de mettre à jour l\'accès à la note</string>
+    <string name="note_delete_owner_only">Seul le propriétaire peut supprimer cette note partagée.</string>
+
 </resources>

@@ -13,7 +13,7 @@ import java.util.List;
 public class NoteDatabase extends SQLiteOpenHelper {
     private static final String TAG = NoteDatabase.class.getSimpleName();
     private static final String DATABASE_NAME = "notes_db";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     public static final String TABLE_NAME = "notes";
     public static final String COLUMN_ID = "id";
     public static final String COLUMN_FIREBASE_DOC_ID = "firebase_doc_id";
@@ -21,6 +21,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public static final String COLUMN_CONTENT = "content";
     public static final String COLUMN_COLOR = "color";
     public static final String COLUMN_POSITION = "position";
+    public static final String COLUMN_OWNER_UID = "owner_uid";
 
 
     public NoteDatabase(Context context) {
@@ -35,7 +36,8 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 + COLUMN_TITLE + " TEXT,"
                 + COLUMN_CONTENT + " TEXT,"
                 + COLUMN_COLOR + " INTEGER DEFAULT 16777215,"
-                + COLUMN_POSITION + " INTEGER"
+                + COLUMN_POSITION + " INTEGER,"
+                + COLUMN_OWNER_UID + " TEXT"
                 + ")";
         db.execSQL(CREATE_TABLE);
     }
@@ -61,9 +63,16 @@ public class NoteDatabase extends SQLiteOpenHelper {
             // Ajouter l'index unique après migration
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_firebase_doc_id ON " + TABLE_NAME + "(" + COLUMN_FIREBASE_DOC_ID + ")");
         }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE " + TABLE_NAME + " ADD COLUMN " + COLUMN_OWNER_UID + " TEXT");
+        }
     }
 
     public long insertNote(String firebaseDocId, String title, String content, int color, int position) {
+        return insertNote(firebaseDocId, title, content, color, position, null);
+    }
+
+    public long insertNote(String firebaseDocId, String title, String content, int color, int position, String ownerUid) {
         SQLiteDatabase db = getWritableDatabase();
         ContentValues cv = new ContentValues();
         cv.put(COLUMN_FIREBASE_DOC_ID, firebaseDocId);
@@ -71,6 +80,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
         cv.put(COLUMN_CONTENT, content);
         cv.put(COLUMN_COLOR, color);
         cv.put(COLUMN_POSITION, position);
+        cv.put(COLUMN_OWNER_UID, ownerUid);
         return db.insert(TABLE_NAME, null, cv);
     }
 
@@ -117,8 +127,9 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 String content = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
                 int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
                 int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
+                String ownerUid = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_OWNER_UID));
                 try {
-                    notes.add(new Note(id, firebaseDocId, title, content, color, position));
+                    notes.add(new Note(id, firebaseDocId, ownerUid, title, content, color, position));
                 } catch (Exception e) {
                     Log.e(TAG, "[getAllNotes] Error creating Note object for id " + id, e);
                 }
@@ -139,8 +150,9 @@ public class NoteDatabase extends SQLiteOpenHelper {
             String content = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
             int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
             int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
+            String ownerUid = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_OWNER_UID));
 
-            note = new Note(id, firebaseDocId, title, content, color, position);
+            note = new Note(id, firebaseDocId, ownerUid, title, content, color, position);
             cursor.close();
         }
 
@@ -163,8 +175,9 @@ public class NoteDatabase extends SQLiteOpenHelper {
             String content = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
             int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
             int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
+            String ownerUid = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_OWNER_UID));
 
-            note = new Note(id, firebaseDocId, title, content, color, position);
+            note = new Note(id, firebaseDocId, ownerUid, title, content, color, position);
             cursor.close();
         }
 
@@ -174,7 +187,7 @@ public class NoteDatabase extends SQLiteOpenHelper {
     public List<Note> getAllNotesRaw() {
         List<Note> notes = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT id, firebase_doc_id, title, content, color, position FROM notes ORDER BY position ASC", null);
+        Cursor cursor = db.rawQuery("SELECT id, firebase_doc_id, title, content, color, position, owner_uid FROM notes ORDER BY position ASC", null);
 
         if (cursor.moveToFirst()) {
             do {
@@ -184,7 +197,8 @@ public class NoteDatabase extends SQLiteOpenHelper {
                 String encryptedContent = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_CONTENT));
                 int color = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_COLOR));
                 int position = cursor.getInt(cursor.getColumnIndexOrThrow(COLUMN_POSITION));
-                Note note = new Note(id, firebaseDocId, encryptedTitle, encryptedContent, color, position);
+                String ownerUid = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_OWNER_UID));
+                Note note = new Note(id, firebaseDocId, ownerUid, encryptedTitle, encryptedContent, color, position);
                 notes.add(note);
             } while (cursor.moveToNext());
         }
@@ -202,9 +216,15 @@ public class NoteDatabase extends SQLiteOpenHelper {
         if (existing != null) {
             // Met à jour la note existante (avec l'ID local correct)
             updateNote(existing.getId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
+            if (note.getOwnerUid() != null && !note.getOwnerUid().trim().isEmpty()
+                    && (existing.getOwnerUid() == null || !note.getOwnerUid().equals(existing.getOwnerUid()))) {
+                ContentValues cv = new ContentValues();
+                cv.put(COLUMN_OWNER_UID, note.getOwnerUid());
+                getWritableDatabase().update(TABLE_NAME, cv, COLUMN_ID + "=?", new String[]{String.valueOf(existing.getId())});
+            }
         } else {
             // Insère avec le firebaseDocId, ID local auto-généré
-            insertNote(note.getFirebaseDocId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
+            insertNote(note.getFirebaseDocId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition(), note.getOwnerUid());
         }
     }
 

@@ -163,4 +163,15 @@
     <string name="note_lock_take_failed">Unable to open: note is being edited by %1$s.</string>
     <string name="note_lock_take_failed_generic">Unable to open this note right now.</string>
 
+    <!-- Per-note sharing -->
+    <string name="share_note_actions_title">Share note</string>
+    <string name="share_note_text_option">Share text</string>
+    <string name="manage_note_access_option">Manage access</string>
+    <string name="manage_note_access_requires_synced">Sync this note first to manage access.</string>
+    <string name="manage_note_access_owner_only">Only the owner can manage access.</string>
+    <string name="manage_note_access_dialog_title">Who can access this note?</string>
+    <string name="note_access_saved">Note access updated</string>
+    <string name="note_access_save_error">Unable to update note access</string>
+    <string name="note_delete_owner_only">Only the owner can delete this shared note.</string>
+
 </resources>

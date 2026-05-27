@@ -19,11 +19,17 @@ service cloud.firestore {
       return isOwner(userId) || isSharedWith(userId);
     }
 
-    function requestedNoteDocId() {
-      return request.resource.data.firebaseDocId != null
-        ? request.resource.data.firebaseDocId
-        : resource.data.firebaseDocId;
+    function hasSharedWithAccess(data) {
+      return signedIn()
+        && ('sharedWith' in data)
+        && data.sharedWith[request.auth.uid] == true;
     }
+
+    function hasLegacySharedAccess(userId, data) {
+      return isSharedWith(userId)
+        && !('sharedWith' in data);
+    }
+
 
     function lockCanBeBypassed(noteDocId) {
       return !exists(/databases/$(database)/documents/note_locks/$(noteDocId))
@@ -36,11 +42,28 @@ service cloud.firestore {
       allow write: if isOwner(userId);
 
       match /notes/{noteId} {
-        allow read: if canAccessUserNotes(userId);
+        allow read: if isOwner(userId)
+          || hasSharedWithAccess(resource.data)
+          || hasLegacySharedAccess(userId, resource.data);
+
+        allow create: if isOwner(userId)
+          && request.resource.data.ownerUid == userId
+          && lockCanBeBypassed(request.resource.data.firebaseDocId != null
+              ? request.resource.data.firebaseDocId : noteId);
 
         // Toute écriture de note est refusée si un autre utilisateur tient un lock actif.
-        allow create, update, delete: if canAccessUserNotes(userId)
-          && lockCanBeBypassed(requestedNoteDocId());
+        allow update: if (isOwner(userId)
+            || hasSharedWithAccess(resource.data)
+            || hasLegacySharedAccess(userId, resource.data))
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.firebaseDocId == resource.data.firebaseDocId
+          && (isOwner(userId) || request.resource.data.sharedWith == resource.data.sharedWith)
+          && lockCanBeBypassed(resource.data.firebaseDocId != null
+              ? resource.data.firebaseDocId : noteId);
+
+        allow delete: if isOwner(userId)
+          && lockCanBeBypassed(resource.data.firebaseDocId != null
+              ? resource.data.firebaseDocId : noteId);
       }
 
       match /shared_users/{sharedUserId} {

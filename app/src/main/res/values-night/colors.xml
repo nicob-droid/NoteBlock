@@ -7,7 +7,7 @@
     <color name="colorSecondary">#b0e3f8</color>
     <color name="colorSecondaryVariant">#47a0d1</color>
     <color name="colorOnSecondary">#FF333333</color>
-    <color name="colorWindowBackground">#FF000000</color>
+    <color name="colorWindowBackground">#FF121212</color>
     <color name="colorTextPrimary">#FFFFFFFF</color>
     <color name="colorTextSecondary">#FF888888</color>
 </resources>

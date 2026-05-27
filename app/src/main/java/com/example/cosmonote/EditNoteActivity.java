@@ -5,6 +5,7 @@ import com.cosmonote.app.R;
 import static com.example.cosmonote.NotesActivity.EXTRA_CREATE_SYNCED;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_COLOR;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_ID;
+import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_OWNER_UID;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_POSITION;
 
 import android.content.Intent;
@@ -26,12 +27,18 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
 
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Set;
 
 
 public class EditNoteActivity extends BaseActivity  {
@@ -51,6 +58,7 @@ public class EditNoteActivity extends BaseActivity  {
     private int selectedPosition = 0;  // par défaut première position
     private boolean isNoteDeleted = false;
     private boolean createSyncedOnCreate = false;
+    private String noteOwnerUid;
     private boolean hasActiveLock = false;
     private boolean isReadOnlyLocked = false;
     private final Handler lockHandler = new Handler(Looper.getMainLooper());
@@ -85,7 +93,7 @@ public class EditNoteActivity extends BaseActivity  {
         manageDeleteButton();
 
         // Manage button SHARE
-        btnShare.setOnClickListener(v -> shareNote());
+        btnShare.setOnClickListener(v -> showShareActionsDialog());
     }
 
     @Override
@@ -116,6 +124,7 @@ public class EditNoteActivity extends BaseActivity  {
         selectedColor = getIntent().getIntExtra(EXTRA_NOTE_COLOR, Color.WHITE);
         selectedPosition = getIntent().getIntExtra(EXTRA_NOTE_POSITION, -1);
         createSyncedOnCreate = getIntent().getBooleanExtra(EXTRA_CREATE_SYNCED, false);
+        noteOwnerUid = getIntent().getStringExtra(EXTRA_NOTE_OWNER_UID);
     }
 
     private void initNoteFromDatabase() {
@@ -125,6 +134,7 @@ public class EditNoteActivity extends BaseActivity  {
             note = db.getNoteById(noteId);
             if (note != null) {
                 firebaseDocId = note.getFirebaseDocId();
+                noteOwnerUid = note.getOwnerUid();
                 // remplis les champs de l'UI
                 titleInput.setText(note.getTitle());
                 contentInput.setText(note.getContent());
@@ -283,10 +293,20 @@ public class EditNoteActivity extends BaseActivity  {
 
     private void manageDeleteButton() {
         if (note != null) {
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            String ownerUid = resolveNoteOwnerUid(currentUser);
+            boolean canDelete = TextUtils.isEmpty(note.getFirebaseDocId())
+                    || (currentUser != null && Objects.equals(currentUser.getUid(), ownerUid));
+            btnDelete.setEnabled(canDelete);
+
             btnDelete.setOnClickListener(v -> new AlertDialog.Builder(this)
                     .setTitle(getString(R.string.delete_note_confirmation_title))
                     .setMessage(getString(R.string.delete_note_confirmation_message))
                     .setPositiveButton(getString(R.string.yes), (dialog, which) -> {
+                        if (!canDelete) {
+                            Toast.makeText(this, getString(R.string.note_delete_owner_only), Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                         // remove note
                         deleteNote(note);
                     })
@@ -299,29 +319,84 @@ public class EditNoteActivity extends BaseActivity  {
     }
 
     private void deleteNote(Note note) {
-        // 1. Supprimer localement
-        deleteNoteLocal(note);
+        // Note locale uniquement
+        if (TextUtils.isEmpty(note.getFirebaseDocId())) {
+            deleteNoteLocal(note);
+            isNoteDeleted = true;
+            finish();
+            return;
+        }
 
-        // 2. Supprimer depuis Firestore si connecté
+        // Note synchronisée: supprimer d'abord Firestore pour éviter la réapparition.
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
-            String userId = currentUser.getUid();
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            new Thread(() -> {
+                FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+                Set<String> ownerCandidates = new HashSet<>();
+                String explicitOwnerUid = note.getOwnerUid();
+                if (!TextUtils.isEmpty(explicitOwnerUid)) {
+                    ownerCandidates.add(explicitOwnerUid.trim());
+                }
 
-            db.collection("users")
-                    .document(userId)
-                    .collection("notes")
-                    .document(note.getFirebaseDocId())
-                    .delete()
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d("DeleteNote", "Note supprimée de Firestore");
-                        isNoteDeleted = true;  // Ici, seulement après réussite
-                        finish();              // Et on quitte après
-                    })
-                    .addOnFailureListener(e -> Log.e("DeleteNote", "Erreur lors de la suppression de Firestore", e));
+                String resolvedOwnerUid = resolveNoteOwnerUid(currentUser);
+                if (!TextUtils.isEmpty(resolvedOwnerUid)) {
+                    ownerCandidates.add(resolvedOwnerUid.trim());
+                }
+                ownerCandidates.add(currentUser.getUid());
+
+                try {
+                    com.google.firebase.firestore.QuerySnapshot sharedUsersSnapshot = com.google.android.gms.tasks.Tasks.await(
+                            firestore.collection("users")
+                                    .document(currentUser.getUid())
+                                    .collection("shared_users")
+                                    .get()
+                    );
+                    if (sharedUsersSnapshot != null) {
+                        for (DocumentSnapshot sharedDoc : sharedUsersSnapshot.getDocuments()) {
+                            String sharedUserId = sharedDoc.getString("sharedUserId");
+                            if (TextUtils.isEmpty(sharedUserId)) {
+                                sharedUserId = sharedDoc.getId();
+                            }
+                            if (!TextUtils.isEmpty(sharedUserId)) {
+                                ownerCandidates.add(sharedUserId.trim());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Impossible de charger shared_users pour suppression", e);
+                }
+
+                boolean deletedRemotely = false;
+                for (String ownerId : ownerCandidates) {
+                    try {
+                        DocumentReference docRef = firestore.collection("users")
+                                .document(ownerId)
+                                .collection("notes")
+                                .document(note.getFirebaseDocId());
+                        DocumentSnapshot snapshot = com.google.android.gms.tasks.Tasks.await(docRef.get());
+                        if (snapshot.exists()) {
+                            com.google.android.gms.tasks.Tasks.await(docRef.delete());
+                            deletedRemotely = true;
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Suppression Firestore partielle ownerId=" + ownerId, e);
+                    }
+                }
+
+                boolean finalDeletedRemotely = deletedRemotely;
+                runOnUiThread(() -> {
+                    if (finalDeletedRemotely) {
+                        deleteNoteLocal(note);
+                        isNoteDeleted = true;
+                        finish();
+                    } else {
+                        Log.w(TAG, "Suppression Firestore impossible pour firebaseDocId=" + note.getFirebaseDocId());
+                        Toast.makeText(this, getString(R.string.delete_failed), Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }).start();
         } else {
-            isNoteDeleted = true; // local seulement
-            finish();
+            Toast.makeText(this, getString(R.string.message_connect_to_share), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -357,10 +432,11 @@ public class EditNoteActivity extends BaseActivity  {
             if (noteId == -1) {
                 FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
                 boolean canCreateSynced = createSyncedOnCreate && currentUser != null;
+                noteOwnerUid = canCreateSynced ? currentUser.getUid() : null;
 
                 // Création depuis onglet Synced -> note synchronisée ; sinon note locale.
                 firebaseDocId = canCreateSynced ? java.util.UUID.randomUUID().toString() : null;
-                id = db.insertNote(firebaseDocId, title, content, selectedColor, position);
+                id = db.insertNote(firebaseDocId, title, content, selectedColor, position, noteOwnerUid);
                 Log.i(TAG, "Note créée avec id = " + id + ", firebaseDocId = " + firebaseDocId);
             } else {
                 // Modification : update, id reste le même
@@ -373,7 +449,7 @@ public class EditNoteActivity extends BaseActivity  {
             long timestamp = System.currentTimeMillis();
 
             // Construire Note avec l'id correct
-            Note note = new Note((int) id, firebaseDocId, title, content, selectedColor, position, timestamp);
+            Note note = new Note((int) id, firebaseDocId, noteOwnerUid, title, content, selectedColor, position, timestamp);
 
             // Synchroniser uniquement les notes déjà synchronisées.
             if(!isNoteDeleted && !TextUtils.isEmpty(firebaseDocId)) {
@@ -386,11 +462,27 @@ public class EditNoteActivity extends BaseActivity  {
     }
 
 
-    private void shareNote() {
-        // Get note text
+    private void showShareActionsDialog() {
+        String[] options = new String[] {
+                getString(R.string.share_note_text_option),
+                getString(R.string.manage_note_access_option)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.share_note_actions_title))
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        shareNoteText();
+                    } else {
+                        manageNoteAccess();
+                    }
+                })
+                .show();
+    }
+
+    private void shareNoteText() {
         String noteTitle = titleInput.getText().toString();
         String noteContent = contentInput.getText().toString();
-        // Share note
         if ((!noteTitle.isEmpty()) && (!noteContent.isEmpty())) {
             Intent shareIntent = new Intent(Intent.ACTION_SEND);
             shareIntent.setType("text/plain");
@@ -399,6 +491,122 @@ public class EditNoteActivity extends BaseActivity  {
         } else {
             Toast.makeText(this, getString(R.string.note_empty), Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private void manageNoteAccess() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, getString(R.string.message_connect_to_share), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (TextUtils.isEmpty(firebaseDocId)) {
+            Toast.makeText(this, getString(R.string.manage_note_access_requires_synced), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String ownerUid = resolveNoteOwnerUid(currentUser);
+        if (TextUtils.isEmpty(ownerUid)) {
+            Toast.makeText(this, getString(R.string.manage_note_access_requires_synced), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!Objects.equals(currentUser.getUid(), ownerUid)) {
+            Toast.makeText(this, getString(R.string.manage_note_access_owner_only), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        FirebaseFirestore firestore = FirebaseFirestore.getInstance();
+        DocumentReference noteRef = firestore.collection("users")
+                .document(ownerUid)
+                .collection("notes")
+                .document(firebaseDocId);
+
+        firestore.collection("users")
+                .document(ownerUid)
+                .collection("shared_users")
+                .get()
+                .addOnSuccessListener(sharedUsersSnapshot -> noteRef.get().addOnSuccessListener(noteDoc -> {
+                    List<String> candidates = new ArrayList<>();
+                    if (sharedUsersSnapshot != null) {
+                        for (DocumentSnapshot doc : sharedUsersSnapshot.getDocuments()) {
+                            String sharedUid = doc.getString("sharedUserId");
+                            if (TextUtils.isEmpty(sharedUid)) {
+                                sharedUid = doc.getId();
+                            }
+                            if (!TextUtils.isEmpty(sharedUid) && !sharedUid.equals(ownerUid)) {
+                                candidates.add(sharedUid);
+                            }
+                        }
+                    }
+
+                    Map<String, Object> currentSharedWith = new HashMap<>();
+                    Object sharedWithObj = noteDoc.get("sharedWith");
+                    if (sharedWithObj instanceof Map) {
+                        for (Map.Entry<?, ?> entry : ((Map<?, ?>) sharedWithObj).entrySet()) {
+                            if (entry.getKey() instanceof String && Boolean.TRUE.equals(entry.getValue())) {
+                                currentSharedWith.put((String) entry.getKey(), true);
+                            }
+                        }
+                    }
+
+                    if (candidates.isEmpty()) {
+                        Toast.makeText(this, getString(R.string.no_shared_users), Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    String[] items = candidates.toArray(new String[0]);
+                    boolean[] checked = new boolean[items.length];
+                    for (int i = 0; i < items.length; i++) {
+                        checked[i] = Boolean.TRUE.equals(currentSharedWith.get(items[i]));
+                    }
+
+                    new AlertDialog.Builder(this)
+                            .setTitle(getString(R.string.manage_note_access_dialog_title))
+                            .setMultiChoiceItems(items, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
+                            .setPositiveButton(getString(R.string.save), (dialog, which) -> {
+                                Map<String, Object> newSharedWith = new HashMap<>();
+                                for (int i = 0; i < items.length; i++) {
+                                    if (checked[i]) {
+                                        newSharedWith.put(items[i], true);
+                                    }
+                                }
+
+                                Map<String, Object> updates = new HashMap<>();
+                                updates.put("ownerUid", ownerUid);
+                                updates.put("sharedWith", newSharedWith);
+                                updates.put("timestamp", Timestamp.now());
+
+                                noteRef.set(updates, SetOptions.merge())
+                                        .addOnSuccessListener(aVoid -> Toast.makeText(this, getString(R.string.note_access_saved), Toast.LENGTH_SHORT).show())
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "Impossible de sauvegarder le partage par note", e);
+                                            Toast.makeText(this, getString(R.string.note_access_save_error), Toast.LENGTH_SHORT).show();
+                                        });
+                            })
+                            .setNegativeButton(getString(R.string.cancel), null)
+                            .show();
+                }).addOnFailureListener(e -> {
+                    Log.e(TAG, "Lecture note impossible pour gérer accès", e);
+                    Toast.makeText(this, getString(R.string.note_access_save_error), Toast.LENGTH_SHORT).show();
+                }))
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Lecture shared_users impossible", e);
+                    Toast.makeText(this, getString(R.string.note_access_save_error), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private String resolveNoteOwnerUid(FirebaseUser currentUser) {
+        if (!TextUtils.isEmpty(noteOwnerUid)) {
+            return noteOwnerUid;
+        }
+        if (note != null && !TextUtils.isEmpty(note.getOwnerUid())) {
+            noteOwnerUid = note.getOwnerUid();
+            return noteOwnerUid;
+        }
+        if (currentUser != null && !TextUtils.isEmpty(firebaseDocId)) {
+            noteOwnerUid = currentUser.getUid();
+            return noteOwnerUid;
+        }
+        return null;
     }
 
 
@@ -415,22 +623,32 @@ public class EditNoteActivity extends BaseActivity  {
         }
 
         String userId = currentUser.getUid();
+        String ownerUid = note.getOwnerUid();
+        if (TextUtils.isEmpty(ownerUid)) {
+            ownerUid = userId;
+            note.setOwnerUid(ownerUid);
+        }
+        noteOwnerUid = ownerUid;
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
         DocumentReference docRef = firestore.collection("users")
-                .document(userId)
+                .document(ownerUid)
                 .collection("notes")
                 .document(note.getFirebaseDocId());
 
         Map<String, Object> noteData = new HashMap<>();
         noteData.put("firebaseDocId", note.getFirebaseDocId());
+        noteData.put("ownerUid", ownerUid);
         noteData.put("id", note.getId());
         noteData.put("title", note.getTitle());
         noteData.put("content", note.getContent());
         noteData.put("color", note.getColor());
         noteData.put("position", note.getPosition());
         noteData.put("timestamp", new Timestamp(new Date(note.getTimestamp())));
+        if (noteId == -1) {
+            noteData.put("sharedWith", new HashMap<String, Object>());
+        }
 
-        docRef.set(noteData)
+        docRef.set(noteData, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Note synchronisée dans Firestore firebaseDocId=" + note.getFirebaseDocId()))
                 .addOnFailureListener(e -> Log.e(TAG, "Erreur lors de la sync Firestore", e));
     }

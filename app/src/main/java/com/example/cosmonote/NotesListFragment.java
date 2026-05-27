@@ -1,7 +1,6 @@
 package com.example.cosmonote;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,17 +26,29 @@ import java.util.stream.Collectors;
 
 public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteClickListener {
     private static final String ARG_IS_LOCAL = "is_local";
-    private static final String TAG = "NotesListFragment";
-    private boolean isLocalNotes;
+    private static final String ARG_FILTER_MODE = "filter_mode";
+    private static final int FILTER_ALL = 0;
+    private static final int FILTER_LOCAL = 1;
+    private static final int FILTER_SYNCED = 2;
+    private int filterMode = FILTER_ALL;
     private NotesAdapter adapter;
     private List<Note> notesList;
     private NoteDatabase db;
     private ItemTouchHelper itemTouchHelper;
 
+    public static NotesListFragment newInstanceAll() {
+        NotesListFragment fragment = new NotesListFragment();
+        Bundle args = new Bundle();
+        args.putInt(ARG_FILTER_MODE, FILTER_ALL);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
     public static NotesListFragment newInstance(boolean isLocal) {
         NotesListFragment fragment = new NotesListFragment();
         Bundle args = new Bundle();
         args.putBoolean(ARG_IS_LOCAL, isLocal);
+        args.putInt(ARG_FILTER_MODE, isLocal ? FILTER_LOCAL : FILTER_SYNCED);
         fragment.setArguments(args);
         return fragment;
     }
@@ -46,7 +57,11 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            isLocalNotes = getArguments().getBoolean(ARG_IS_LOCAL);
+            if (getArguments().containsKey(ARG_FILTER_MODE)) {
+                filterMode = getArguments().getInt(ARG_FILTER_MODE, FILTER_ALL);
+            } else if (getArguments().containsKey(ARG_IS_LOCAL)) {
+                filterMode = getArguments().getBoolean(ARG_IS_LOCAL) ? FILTER_LOCAL : FILTER_SYNCED;
+            }
         }
         db = new NoteDatabase(requireContext());
     }
@@ -109,18 +124,18 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
         // Charger toutes les notes depuis la base locale
         List<Note> allNotes = db.getAllNotes();
 
-        // Filtrer selon le type d'onglet
+        // Filtrer selon le mode courant
         List<Note> filteredNotes;
-        if (isLocalNotes) {
-            // Notes locales = pas de firebaseDocId ou utilisateur pas connecté
+        if (filterMode == FILTER_LOCAL) {
             filteredNotes = allNotes.stream()
                     .filter(note -> note.getFirebaseDocId() == null || note.getFirebaseDocId().isEmpty() || !userLoggedIn)
                     .collect(Collectors.toList());
-        } else {
-            // Notes synchronisées = firebaseDocId existe ET utilisateur connecté
+        } else if (filterMode == FILTER_SYNCED) {
             filteredNotes = allNotes.stream()
                     .filter(note -> note.getFirebaseDocId() != null && !note.getFirebaseDocId().isEmpty() && userLoggedIn)
                     .collect(Collectors.toList());
+        } else {
+            filteredNotes = allNotes;
         }
 
         // Calculer les différences avec DiffUtil
