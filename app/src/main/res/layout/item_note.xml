@@ -49,6 +49,7 @@
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:layout_weight="1"
+            android:visibility="gone"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/modify_color"
             app:tint="@color/colorAccent"
