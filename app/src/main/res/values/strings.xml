@@ -149,5 +149,8 @@
     <string name="background_image_saved">Image d\'arrière-plan enregistrée</string>
     <string name="background_image_removed">Image d\'arrière-plan supprimée</string>
 
+    <!-- Onglets notes -->
+    <string name="tab_local_notes">Locales</string>
+    <string name="tab_synced_notes">Partagées</string>
 
 </resources>

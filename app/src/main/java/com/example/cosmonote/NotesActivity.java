@@ -33,6 +33,9 @@ import com.example.cosmonote.Utils.NotificationHelper;
 import com.google.android.flexbox.FlexboxLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
+import androidx.viewpager2.widget.ViewPager2;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentChange;
@@ -58,13 +61,12 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     public static final String EXTRA_NOTE_COLOR = "note_color";
     public static final String EXTRA_NOTE_POSITION = "note_position";
     private static final int REQUEST_CODE_POST_NOTIF = 1001;
-    private NotesAdapter adapter;
-    private List<Note> notesList;
     private NoteDatabase db;
     private final List<ListenerRegistration> activeListeners = new ArrayList<>();
     private Date lastSeenNoteTimestamp;
     private BroadcastReceiver reloadReceiver;
     private ImageView notesBackgroundImageView;
+    private NotesTabsAdapter tabsAdapter;
 
 
     @Override
@@ -75,21 +77,28 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         notesBackgroundImageView = findViewById(R.id.notes_background_image);
         applySavedBackgroundImage();
 
-        RecyclerView recyclerView = findViewById(R.id.notes_recycler_view);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-
-        // Données
-        notesList = new ArrayList<>();
-
         // Lire la date de la dernière note
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         // Init database
         db = new NoteDatabase(this);
-        // Init affichage des notes
-        adapter = new NotesAdapter(notesList, this);
-        recyclerView.setAdapter(adapter);
-        // Charger la base locale une seule fois avec DiffUtil
-        loadNotesFromLocalDatabase();
+
+        // Init ViewPager2 avec TabLayout
+        ViewPager2 viewPager = findViewById(R.id.viewpager_notes);
+        TabLayout tabLayout = findViewById(R.id.tabs_notes);
+
+        // Déterminer si on doit afficher l'onglet synchronisé
+        boolean showSyncedTab = isSyncingConfigured();
+        tabsAdapter = new NotesTabsAdapter(this, showSyncedTab);
+        viewPager.setAdapter(tabsAdapter);
+
+        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            if (position == 0) {
+                tab.setText(R.string.tab_local_notes);
+            } else {
+                tab.setText(R.string.tab_synced_notes);
+            }
+        }).attach();
+
         // Init du floating button
         FloatingActionButton fab = findViewById(R.id.fab_add_note);
         fab.setOnClickListener(v -> {
@@ -106,41 +115,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
                 .setNegativeButton(getString(R.string.no), null)
                 .show());
-
-        // Ajouter un ItemTouchHelper pour gérer le déplacement des notes
-        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(
-                ItemTouchHelper.UP | ItemTouchHelper.DOWN, 0) {
-
-            @Override
-            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
-                int fromPosition = viewHolder.getAdapterPosition();
-                int toPosition = target.getAdapterPosition();
-                // Mets à jour les données de ta liste (ex : swap dans l'ArrayList)
-                Collections.swap(notesList, fromPosition, toPosition);
-                // Notifie l'adapter du déplacement
-                adapter.notifyItemMoved(fromPosition, toPosition);
-
-                return true;
-            }
-            @Override
-            public void clearView(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
-                super.clearView(recyclerView, viewHolder);
-
-                // L'utilisateur a fini de déplacer
-                // => maintenant on sauvegarde la nouvelle position dans la base
-                // Met à jour les positions dans la base
-                updateItemPositionsInDatabase();
-            }
-            @Override
-            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                // Ici, pas de swipe donc rien à faire
-            }
-            @Override
-            public boolean isLongPressDragEnabled() {
-                return true; // Active le drag au long press
-            }
-        });
-        itemTouchHelper.attachToRecyclerView(recyclerView);
     }
 
     private void applySavedBackgroundImage() {
@@ -171,7 +145,20 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         super.onResume();
 
         applySavedBackgroundImage();
-        loadNotesFromLocalDatabase();
+
+        // Vérifier si l'état de connexion a changé et mettre à jour les onglets
+        boolean shouldShowSyncedTab = isSyncingConfigured();
+        if (tabsAdapter != null) {
+            if (shouldShowSyncedTab && !tabsAdapter.isShowingSyncedTab()) {
+                // L'utilisateur vient de se connecter
+                tabsAdapter.setShowSyncedTab(true);
+            } else if (!shouldShowSyncedTab && tabsAdapter.isShowingSyncedTab()) {
+                // L'utilisateur vient de se déconnecter
+                tabsAdapter.setShowSyncedTab(false);
+            }
+        }
+
+        refreshAllNotes();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -202,9 +189,32 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }
     }
 
+    private void refreshAllNotes() {
+        if (tabsAdapter != null) {
+            NotesListFragment local = tabsAdapter.getLocalNotesFragment();
+            NotesListFragment synced = tabsAdapter.getSyncedNotesFragment();
+            if (local != null) {
+                local.refreshNotes();
+            }
+            if (synced != null) {
+                synced.refreshNotes();
+            }
+        }
+    }
+
+    private boolean isSyncingConfigured() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        return user != null;
+    }
+
     private void startFirestoreListeners() {
         FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
         if (firebaseUser != null) {
+            // Mettre à jour l'affichage de l'onglet synced si nécessaire
+            if (tabsAdapter != null && !tabsAdapter.isShowingSyncedTab()) {
+                tabsAdapter.setShowSyncedTab(true);
+            }
+            
             String currentUserId = firebaseUser.getUid();
             fetchNotesFromFirestore(this, currentUserId);
             startListeningNotes(currentUserId);
@@ -231,6 +241,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         }
                     })
                     .addOnFailureListener(e -> Log.w(TAG, "Impossible de récupérer sharedUserId", e));
+        } else {
+            // Utilisateur non connecté - masquer l'onglet synchronized
+            if (tabsAdapter != null && tabsAdapter.isShowingSyncedTab()) {
+                tabsAdapter.setShowSyncedTab(false);
+            }
         }
     }
 
@@ -269,27 +284,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }
     }
 
-
-    private void loadNotesFromLocalDatabase() {
-        try {
-            List<Note> encryptedNotes = db.getAllNotesRaw(); // notes chiffrées
-            List<Note> decryptedNotes = new ArrayList<>();
-
-            for (Note note : encryptedNotes) {
-                Note decryptedNote = new Note(note.getId(), note.getFirebaseDocId(), note.getTitle(), note.getContent(), note.getColor(), note.getPosition());
-                decryptedNotes.add(decryptedNote);
-            }
-
-            DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new NotesDiffCallback(notesList, decryptedNotes));
-            notesList.clear();
-            notesList.addAll(decryptedNotes);
-            diffResult.dispatchUpdatesTo(adapter);
-
-        } catch (Exception e) {
-            Log.e(TAG, "[loadNotesFromLocalDatabase] Exception " + e.getMessage());
-            Toast.makeText(this, getString(R.string.load_notes_error), Toast.LENGTH_SHORT).show();
-        }
-    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -382,7 +376,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             Note updatedNote = new Note(note.getId(), note.getFirebaseDocId(),
                     note.getTitle(), note.getContent(), newColor, note.getPosition());
             syncNoteColorToFirestore(updatedNote);
-            runOnUiThread(this::loadNotesFromLocalDatabase);
+            runOnUiThread(this::refreshAllNotes);
         }).start();
     }
 
@@ -412,16 +406,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 .addOnFailureListener(e -> Log.e(TAG, "Erreur sync couleur Firestore", e));
     }
 
-    private void updateItemPositionsInDatabase() {
-        new Thread(() -> {
-            try {
-                db.updateAllNotePositions(notesList);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            runOnUiThread(this::loadNotesFromLocalDatabase);
-        }).start();
-    }
 
     private void deleteAllNotes() {
         new Thread(() -> {
@@ -442,7 +426,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         });
             }
             runOnUiThread(() -> {
-                loadNotesFromLocalDatabase();
+                refreshAllNotes();
                 Toast.makeText(this, getString(R.string.all_notes_deleted), Toast.LENGTH_SHORT).show();
             });
         }).start();
@@ -529,7 +513,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                             }
                             // Rafraîchir l'affichage seulement si la base locale a changé
                             if (hasLocalChanges) {
-                                runOnUiThread(this::loadNotesFromLocalDatabase);
+                                runOnUiThread(this::refreshAllNotes);
                             }
                         } else {
                             Log.w(TAG, "Erreur fetch Firestore", task.getException());
@@ -676,7 +660,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         saveRemoteNoteLocally(doc);
 
         // 2) Recharge la liste pour afficher immédiatement la note
-        loadNotesFromLocalDatabase();
+        refreshAllNotes();
 
         // 3) Prépare et affiche la notification
         NotificationHelper.showNoteNotification(
@@ -684,29 +668,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 getApplicationContext().getString(R.string.new_note_from_distant),
                 doc.getString("title")
         );
-        /*String title = doc.getString("title");
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, MyApplication.CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_note)
-                .setContentTitle("Nouvelle note partagée")
-                .setContentText(title)
-                .setAutoCancel(true);
-
-        Intent intent = new Intent(this, NotesActivity.class);
-        PendingIntent pi = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
-        builder.setContentIntent(pi);
-
-        Long idLong = doc.getLong("id");
-        int notificationId = (idLong != null) ? idLong.intValue() : 0;
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                        == PackageManager.PERMISSION_GRANTED) {
-            NotificationManagerCompat.from(this)
-                    .notify(notificationId, builder.build());
-        } else {
-            Log.w(TAG, "Notification non envoyée : permission manquante");
-        }*/
+        /*...existing code...*/
     }
 
 
@@ -729,7 +691,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 // La note n'existe pas encore localement : l'insérer
                 Note note = new Note(0, firebaseDocId, title, content, color, position);
                 db.insertOrUpdateNote(note);
-                runOnUiThread(this::loadNotesFromLocalDatabase);
+                runOnUiThread(this::refreshAllNotes);
                 Log.d(TAG, "Note distante ajoutée localement: " + firebaseDocId + " couleur=" + color);
                 return true;
             } else {
@@ -744,7 +706,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
                 Note updated = new Note(localNote.getId(), firebaseDocId, title, content, color, position);
                 db.insertOrUpdateNote(updated);
-                runOnUiThread(this::loadNotesFromLocalDatabase);
+                runOnUiThread(this::refreshAllNotes);
                 Log.d(TAG, "Note distante mise à jour localement: " + firebaseDocId + " couleur=" + color);
                 return true;
             }
@@ -760,7 +722,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             if (localNote == null) return;
 
             db.deleteNoteById(localNote.getId());
-            runOnUiThread(this::loadNotesFromLocalDatabase);
+            runOnUiThread(this::refreshAllNotes);
             Log.d(TAG, "Note distante supprimée localement: " + firebaseDocId);
         } catch (Exception e) {
             Log.e(TAG, "Erreur deleteRemoteNoteLocally", e);
@@ -790,7 +752,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             db.insertOrUpdateNote(note);
 
             // Recharge la liste dans l'UI
-            runOnUiThread(this::loadNotesFromLocalDatabase);
+            runOnUiThread(this::refreshAllNotes);
 
         } catch (Exception e) {
             Log.e(TAG, "Erreur décrypt/save local", e);

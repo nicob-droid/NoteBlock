@@ -147,4 +147,8 @@
     <string name="share_via">Share via…</string>
     <string name="share_code_copied">Code copied to clipboard</string>
 
+    <!-- Notes tabs -->
+    <string name="tab_local_notes">Local</string>
+    <string name="tab_synced_notes">Synced</string>
+
 </resources>
