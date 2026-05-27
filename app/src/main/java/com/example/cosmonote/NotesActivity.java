@@ -85,11 +85,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         // Init database
         db = new NoteDatabase(this);
-        // Charger la database
-        loadNotes();
         // Init affichage des notes
         adapter = new NotesAdapter(notesList, this);
         recyclerView.setAdapter(adapter);
+        // Charger la base locale une seule fois avec DiffUtil
+        loadNotesFromLocalDatabase();
         // Init du floating button
         FloatingActionButton fab = findViewById(R.id.fab_add_note);
         fab.setOnClickListener(v -> {
@@ -141,13 +141,6 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             }
         });
         itemTouchHelper.attachToRecyclerView(recyclerView);
-    }
-
-    private void loadNotes() {
-        new Thread(() -> {
-            List<Note> loaded = db.getAllNotes();
-            runOnUiThread(() -> adapter.setNotes(loaded));
-        }).start();
     }
 
     private void applySavedBackgroundImage() {
@@ -270,13 +263,9 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     public void onRequestPermissionsResult(int requestCode,
                                            @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE_POST_NOTIF) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission accordée : on peut poster des notifs
-            } else {
-                // Permission refusée : tu peux désactiver la notif ou prévenir l'utilisateur
-                Toast.makeText(this, "Permission notifications non accordée", Toast.LENGTH_SHORT).show();
-            }
+        if (requestCode == REQUEST_CODE_POST_NOTIF
+                && (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
+            Toast.makeText(this, "Permission notifications non accordée", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -337,7 +326,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
 
     private void showColorPickerBottomSheet(Note note) {
-        View view = getLayoutInflater().inflate(R.layout.bottom_sheet_color_picker, null);
+        View view = getLayoutInflater().inflate(
+                R.layout.bottom_sheet_color_picker,
+                findViewById(android.R.id.content),
+                false
+        );
         BottomSheetDialog dialog = new BottomSheetDialog(this);
         dialog.setContentView(view);
 
@@ -426,7 +419,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            runOnUiThread(this::loadNotes);
+            runOnUiThread(this::loadNotesFromLocalDatabase);
         }).start();
     }
 
@@ -449,8 +442,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         });
             }
             runOnUiThread(() -> {
-                notesList.clear();
-                adapter.notifyDataSetChanged();
+                loadNotesFromLocalDatabase();
                 Toast.makeText(this, getString(R.string.all_notes_deleted), Toast.LENGTH_SHORT).show();
             });
         }).start();
@@ -469,6 +461,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                     if (task.isSuccessful()) {
                         QuerySnapshot querySnapshot = task.getResult();
                         if (querySnapshot != null) {
+                            boolean hasLocalChanges = false;
                             for (QueryDocumentSnapshot document : task.getResult()) {
                                 String firebaseDocId = document.getString("firebaseDocId");
 
@@ -506,10 +499,12 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         String docId = (firebaseDocId != null) ? firebaseDocId : localNote.getFirebaseDocId();
                                         boolean contentChanged = !localNote.getTitle().equals(title) || !localNote.getContent().equals(content);
                                         boolean colorChanged = (localNote.getColor() != color);
-                                        if (contentChanged || colorChanged) {
+                                        boolean positionChanged = (localNote.getPosition() != position);
+                                        if (contentChanged || colorChanged || positionChanged) {
                                             Note updated = new Note(localNote.getId(), docId, title, content,
-                                                    color, localNote.getPosition());
+                                                    color, position);
                                             db.insertOrUpdateNote(updated);
+                                            hasLocalChanges = true;
                                         }
                                     } else {
                                         // Nouvelle note (venant d'un autre appareil ou utilisateur partagé)
@@ -518,6 +513,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                         }
                                         Note note = new Note(0, firebaseDocId, title, content, color, position);
                                         db.insertOrUpdateNote(note);
+                                        hasLocalChanges = true;
 
                                         if (isRemoteUser) {
                                             NotificationHelper.showNoteNotification(
@@ -531,8 +527,10 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                     Log.e(TAG, "[fetchNotesFromFirestore] Exception " + e.getMessage());
                                 }
                             }
-                            // Rafraîchir l'affichage après la synchro
-                            runOnUiThread(this::loadNotesFromLocalDatabase);
+                            // Rafraîchir l'affichage seulement si la base locale a changé
+                            if (hasLocalChanges) {
+                                runOnUiThread(this::loadNotesFromLocalDatabase);
+                            }
                         } else {
                             Log.w(TAG, "Erreur fetch Firestore", task.getException());
                         }
@@ -612,10 +610,12 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                                     case ADDED:
                                         // Vérifier si la note existe déjà localement
                                         if (db.noteExistsByFirebaseDocId(firebaseDocId)) {
-                                            // La note existe déjà : mettre à jour silencieusement
+                                            // La note existe déjà : mettre à jour seulement si nécessaire
                                             // (couvre le cas où la couleur a changé pendant qu'on était déconnecté)
-                                            updateRemoteNoteLocally(doc, firebaseDocId);
-                                            Log.d(TAG, "Note ADDED déjà présente, mise à jour silencieuse: " + firebaseDocId);
+                                            boolean updated = updateRemoteNoteLocally(doc, firebaseDocId);
+                                            if (updated) {
+                                                Log.d(TAG, "Note ADDED déjà présente, mise à jour silencieuse: " + firebaseDocId);
+                                            }
                                             break;
                                         }
                                         // Note absente localement : l'ajouter avec notification
@@ -639,11 +639,12 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
                                     case MODIFIED:
                                         // Mettre à jour la note locale (couleur, contenu, etc.)
-                                        updateRemoteNoteLocally(doc, firebaseDocId);
-                                        NotificationHelper.showNoteNotification(
-                                                getApplicationContext(),
-                                                "Note modifiée",
-                                                doc.getString("title"));
+                                        if (updateRemoteNoteLocally(doc, firebaseDocId)) {
+                                            NotificationHelper.showNoteNotification(
+                                                    getApplicationContext(),
+                                                    "Note modifiée",
+                                                    doc.getString("title"));
+                                        }
                                         break;
 
                                     case REMOVED:
@@ -713,7 +714,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
      * Déchiffre le DocumentSnapshot reçu de Firestore et l'insère ou met à jour
      * la note dans ta base locale, puis rafraîchit l'affichage.
      */
-    private void updateRemoteNoteLocally(DocumentSnapshot doc, String firebaseDocId) {
+    private boolean updateRemoteNoteLocally(DocumentSnapshot doc, String firebaseDocId) {
         try {
             String title = doc.getString("title");
             String content = doc.getString("content");
@@ -728,15 +729,29 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 // La note n'existe pas encore localement : l'insérer
                 Note note = new Note(0, firebaseDocId, title, content, color, position);
                 db.insertOrUpdateNote(note);
+                runOnUiThread(this::loadNotesFromLocalDatabase);
+                Log.d(TAG, "Note distante ajoutée localement: " + firebaseDocId + " couleur=" + color);
+                return true;
             } else {
+                boolean sameTitle = java.util.Objects.equals(localNote.getTitle(), title);
+                boolean sameContent = java.util.Objects.equals(localNote.getContent(), content);
+                boolean sameColor = localNote.getColor() == color;
+                boolean samePosition = localNote.getPosition() == position;
+
+                if (sameTitle && sameContent && sameColor && samePosition) {
+                    return false;
+                }
+
                 Note updated = new Note(localNote.getId(), firebaseDocId, title, content, color, position);
                 db.insertOrUpdateNote(updated);
+                runOnUiThread(this::loadNotesFromLocalDatabase);
+                Log.d(TAG, "Note distante mise à jour localement: " + firebaseDocId + " couleur=" + color);
+                return true;
             }
-            runOnUiThread(this::loadNotesFromLocalDatabase);
-            Log.d(TAG, "Note distante mise à jour localement: " + firebaseDocId + " couleur=" + color);
         } catch (Exception e) {
             Log.e(TAG, "Erreur updateRemoteNoteLocally", e);
         }
+        return false;
     }
 
     private void deleteRemoteNoteLocally(String firebaseDocId) {
