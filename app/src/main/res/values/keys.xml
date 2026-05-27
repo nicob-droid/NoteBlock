@@ -10,6 +10,8 @@
     <string name="key_manage_sharing" translatable="false">manage_sharing</string>
     <string name="key_notifications" translatable="false">notifications</string>
     <string name="key_theme_preference" translatable="false">theme_preference</string>
+    <string name="key_background_image" translatable="false">background_image</string>
+    <string name="key_clear_background_image" translatable="false">clear_background_image</string>
     <string name="key_pin_enabled" translatable="false">pin_enabled</string>
     <string name="key_change_pin" translatable="false">change_pin</string>
 </resources>

@@ -12,6 +12,7 @@ public class NotePreferences {
     private static final String KEY_LAST_SEEN_TIMESTAMP = "last_seen_timestamp";
     private static final String KEY_PIN_HASH = "pin_hash";
     private static final String KEY_PIN_ENABLED = "pin_enabled";
+    private static final String KEY_NOTES_BACKGROUND_IMAGE_URI = "notes_background_image_uri";
 
     public static void saveLastSeenTimestamp(Context context, Date timestamp) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -47,5 +48,20 @@ public class NotePreferences {
     public static void clearPinHash(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().remove(KEY_PIN_HASH).apply();
+    }
+
+    public static void saveNotesBackgroundImageUri(Context context, String uri) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(KEY_NOTES_BACKGROUND_IMAGE_URI, uri).apply();
+    }
+
+    public static String loadNotesBackgroundImageUri(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(KEY_NOTES_BACKGROUND_IMAGE_URI, null);
+    }
+
+    public static void clearNotesBackgroundImageUri(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().remove(KEY_NOTES_BACKGROUND_IMAGE_URI).apply();
     }
 }

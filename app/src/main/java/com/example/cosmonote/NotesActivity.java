@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -16,6 +17,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -62,6 +64,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private final List<ListenerRegistration> activeListeners = new ArrayList<>();
     private Date lastSeenNoteTimestamp;
     private BroadcastReceiver reloadReceiver;
+    private ImageView notesBackgroundImageView;
 
 
     @Override
@@ -69,6 +72,8 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_notes);
+        notesBackgroundImageView = findViewById(R.id.notes_background_image);
+        applySavedBackgroundImage();
 
         RecyclerView recyclerView = findViewById(R.id.notes_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -145,10 +150,34 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         }).start();
     }
 
+    private void applySavedBackgroundImage() {
+        if (notesBackgroundImageView == null) {
+            return;
+        }
+
+        String backgroundUriString = NotePreferences.loadNotesBackgroundImageUri(this);
+        if (backgroundUriString == null || backgroundUriString.trim().isEmpty()) {
+            notesBackgroundImageView.setImageDrawable(null);
+            notesBackgroundImageView.setVisibility(View.GONE);
+            return;
+        }
+
+        try {
+            notesBackgroundImageView.setImageURI(Uri.parse(backgroundUriString));
+            notesBackgroundImageView.setVisibility(View.VISIBLE);
+        } catch (Exception e) {
+            Log.w(TAG, "Impossible de charger l'image de fond: " + backgroundUriString, e);
+            NotePreferences.clearNotesBackgroundImageUri(this);
+            notesBackgroundImageView.setImageDrawable(null);
+            notesBackgroundImageView.setVisibility(View.GONE);
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
 
+        applySavedBackgroundImage();
         loadNotesFromLocalDatabase();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -173,11 +202,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             }
         };
         IntentFilter filter = new IntentFilter("com.cosmonote.app.RELOAD_NOTES");
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(reloadReceiver, filter, RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(reloadReceiver, filter);
-        }
+        ContextCompat.registerReceiver(this, reloadReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         if (activeListeners.isEmpty()) {
             startFirestoreListeners();

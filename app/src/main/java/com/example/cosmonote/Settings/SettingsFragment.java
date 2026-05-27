@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
@@ -42,9 +44,36 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
 
     private Preference registerPref, loginPref, logoutPref;
     private Preference manageSharingPref;
+    private Preference backgroundImagePref;
+    private Preference clearBackgroundImagePref;
     private SwitchPreferenceCompat pinEnabledPref;
     private Preference changePinPref;
     private PreferenceCategory sharingNotesCategory;
+    private final ActivityResultLauncher<String[]> backgroundImagePickerLauncher = registerForActivityResult(
+            new ActivityResultContracts.OpenDocument(),
+            uri -> {
+                if (uri == null || getContext() == null) {
+                    return;
+                }
+
+                String previousUri = NotePreferences.loadNotesBackgroundImageUri(requireContext());
+                try {
+                    requireContext().getContentResolver().takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                    if (previousUri != null && !previousUri.equals(uri.toString())) {
+                        releasePersistedBackgroundPermission(previousUri);
+                    }
+                    NotePreferences.saveNotesBackgroundImageUri(requireContext(), uri.toString());
+                    updateBackgroundImagePreferences();
+                    Toast.makeText(requireContext(), getString(R.string.background_image_saved), Toast.LENGTH_SHORT).show();
+                } catch (SecurityException e) {
+                    Log.e("SettingsFragment", "Impossible de persister l'accès à l'image", e);
+                    Toast.makeText(requireContext(), getString(R.string.background_image_pick_error), Toast.LENGTH_SHORT).show();
+                }
+            }
+    );
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
@@ -64,12 +93,27 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
         Preference versionPref = findPreference("app_version");
         Preference datePref = findPreference("app_build_date");
         ListPreference themePref = findPreference(getString(R.string.key_theme_preference));
+        backgroundImagePref = findPreference(getString(R.string.key_background_image));
+        clearBackgroundImagePref = findPreference(getString(R.string.key_clear_background_image));
         if (themePref != null) {
             themePref.setOnPreferenceChangeListener((preference, newValue) -> {
                 requireActivity().recreate(); // Applique le nouveau thème immédiatement
                 return true;
             });
         }
+        if (backgroundImagePref != null) {
+            backgroundImagePref.setOnPreferenceClickListener(preference -> {
+                backgroundImagePickerLauncher.launch(new String[]{"image/*"});
+                return true;
+            });
+        }
+        if (clearBackgroundImagePref != null) {
+            clearBackgroundImagePref.setOnPreferenceClickListener(preference -> {
+                clearBackgroundImage();
+                return true;
+            });
+        }
+        updateBackgroundImagePreferences();
 
         FirebaseUser user = auth.getCurrentUser();
         updateUI(user);
@@ -200,6 +244,48 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             }
         } else {
             NotificationHelper.cancelAllNotifications(requireContext());
+        }
+    }
+
+    private void updateBackgroundImagePreferences() {
+        if (getContext() == null) return;
+
+        String uriString = NotePreferences.loadNotesBackgroundImageUri(requireContext());
+        boolean hasBackgroundImage = uriString != null && !uriString.trim().isEmpty();
+
+        if (backgroundImagePref != null) {
+            backgroundImagePref.setSummary(hasBackgroundImage
+                    ? getString(R.string.background_image_selected_summary)
+                    : getString(R.string.background_image_not_selected_summary));
+        }
+
+        if (clearBackgroundImagePref != null) {
+            clearBackgroundImagePref.setEnabled(hasBackgroundImage);
+        }
+    }
+
+    private void clearBackgroundImage() {
+        if (getContext() == null) return;
+
+        String currentUri = NotePreferences.loadNotesBackgroundImageUri(requireContext());
+        releasePersistedBackgroundPermission(currentUri);
+        NotePreferences.clearNotesBackgroundImageUri(requireContext());
+        updateBackgroundImagePreferences();
+        Toast.makeText(requireContext(), getString(R.string.background_image_removed), Toast.LENGTH_SHORT).show();
+    }
+
+    private void releasePersistedBackgroundPermission(String uriString) {
+        if (uriString == null || uriString.trim().isEmpty() || getContext() == null) {
+            return;
+        }
+
+        try {
+            requireContext().getContentResolver().releasePersistableUriPermission(
+                    Uri.parse(uriString),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+            );
+        } catch (SecurityException e) {
+            Log.w("SettingsFragment", "Aucune permission persistée à libérer pour l'URI " + uriString, e);
         }
     }
 

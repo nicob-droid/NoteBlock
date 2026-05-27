@@ -72,6 +72,16 @@
             android:entries="@array/theme_entries"
             android:entryValues="@array/theme_values"
             android:defaultValue="auto" />
+
+        <Preference
+            android:key="@string/key_background_image"
+            android:title="@string/background_image_title"
+            android:summary="@string/background_image_summary" />
+
+        <Preference
+            android:key="@string/key_clear_background_image"
+            android:title="@string/background_image_remove_title"
+            android:summary="@string/background_image_remove_summary" />
     </PreferenceCategory>
     <PreferenceCategory
         android:key="about_category"

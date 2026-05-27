@@ -120,6 +120,15 @@
     <string name="privacy_policy_url">https://nicob-droid.github.io/NoteBlock/privacy-policy.html</string>
     <string name="theme_title">App theme</string>
     <string name="theme_summary">Choose light, dark or automatic</string>
+    <string name="background_image_title">Background image</string>
+    <string name="background_image_summary">Choose an image for the notes screen background</string>
+    <string name="background_image_selected_summary">Image selected</string>
+    <string name="background_image_not_selected_summary">No image selected</string>
+    <string name="background_image_remove_title">Remove background image</string>
+    <string name="background_image_remove_summary">Restore the default background</string>
+    <string name="background_image_pick_error">Unable to open this image</string>
+    <string name="background_image_saved">Background image saved</string>
+    <string name="background_image_removed">Background image removed</string>
 
     <!-- Share codes -->
     <string name="share_method_title">How to share?</string>

@@ -139,6 +139,15 @@
     <!-- Titre et résumé -->
     <string name="theme_title">Thème de l\'application</string>
     <string name="theme_summary">Choisissez clair, sombre ou automatique</string>
+    <string name="background_image_title">Image d\'arrière-plan</string>
+    <string name="background_image_summary">Choisir une image pour le fond de l\'écran des notes</string>
+    <string name="background_image_selected_summary">Image sélectionnée</string>
+    <string name="background_image_not_selected_summary">Aucune image sélectionnée</string>
+    <string name="background_image_remove_title">Supprimer l\'image d\'arrière-plan</string>
+    <string name="background_image_remove_summary">Revenir au fond par défaut</string>
+    <string name="background_image_pick_error">Impossible d\'ouvrir cette image</string>
+    <string name="background_image_saved">Image d\'arrière-plan enregistrée</string>
+    <string name="background_image_removed">Image d\'arrière-plan supprimée</string>
 
 
 </resources>
