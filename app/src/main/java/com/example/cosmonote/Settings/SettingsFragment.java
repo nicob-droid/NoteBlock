@@ -409,10 +409,17 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                                     .document(uid)
                                     .delete()
                                     .addOnSuccessListener(aVoid -> {
+                                        // Nettoyer les notes de ce distant
+                                        removeRemoteUserNotes(uid, ownerUid);
+
                                         Toast.makeText(requireContext(), getString(R.string.share_removed), Toast.LENGTH_SHORT).show();
                                         layout.removeView(row);
                                         sharedUids.remove(uid);
                                         updateManageSharingSummary(auth.getCurrentUser());
+
+                                        // Envoyer un broadcast pour que NotesActivity recharge les listeners
+                                        Intent reloadIntent = new Intent("com.cosmonote.app.RELOAD_NOTES");
+                                        requireContext().sendBroadcast(reloadIntent);
                                     }));
                             row.addView(deleteBtn);
                             layout.addView(row);
@@ -601,6 +608,32 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
             requireContext().sendBroadcast(intent);
         }
         Log.d("Sync", "Triggered reload for notes from " + fromUid + " to " + toUid);
+    }
+
+    /**
+     * Supprime toutes les notes locales du distant avec lequel on a coupé le partage.
+     * L'utilisateur ne doit plus avoir accès à ses notes.
+     */
+    private void removeRemoteUserNotes(String remoteUserUid, String currentUserUid) {
+        new Thread(() -> {
+            try {
+                android.content.Context context = getContext();
+                if (context == null) return;
+
+                com.example.cosmonote.NoteDatabase db = new com.example.cosmonote.NoteDatabase(context);
+                java.util.List<com.example.cosmonote.Note> allNotes = db.getAllNotes();
+
+                for (com.example.cosmonote.Note note : allNotes) {
+                    // Supprimer les notes dont le propriétaire est le distant
+                    if (remoteUserUid.equals(note.getOwnerUid())) {
+                        db.deleteNoteById(note.getId());
+                        Log.d("SettingsFragment", "Note supprimée : " + note.getFirebaseDocId() + " (propriétaire: " + remoteUserUid + ")");
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("SettingsFragment", "Erreur lors de la suppression des notes du distant", e);
+            }
+        }).start();
     }
 
 }

@@ -63,6 +63,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private static final int REQUEST_CODE_POST_NOTIF = 1001;
     private NoteDatabase db;
     private final List<ListenerRegistration> activeListeners = new ArrayList<>();
+    private final Map<String, ListenerRegistration> listenersByUserId = new ConcurrentHashMap<>();
     private Date lastSeenNoteTimestamp;
     private BroadcastReceiver reloadReceiver;
     private ImageView notesBackgroundImageView;
@@ -780,6 +781,8 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                         }
                     });
             activeListeners.add(listener);
+                            listenersByUserId.put(userId, listener);
+                            Log.d(TAG, "Listener enregistré pour userId: " + userId);
         } catch (Exception e) {
             Log.w(TAG, "Impossible de démarrer le listener pour userId: " + userId, e);
         }
@@ -1051,6 +1054,21 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
             }
         }
         return "";
+    }
+
+    /**
+     * Arrête le listener pour un utilisateur distant donné.
+     * Appelée quand on retire le partage avec cet utilisateur.
+     */
+    public void stopListeningForUser(String remoteUserId) {
+        ListenerRegistration listener = listenersByUserId.get(remoteUserId);
+        if (listener != null) {
+            listener.remove();
+            listenersByUserId.remove(remoteUserId);
+            activeListeners.remove(listener);
+            ownerSharedUserLabels.remove(remoteUserId);
+            Log.d(TAG, "Listener arrêté et labels nettoyés pour userId: " + remoteUserId);
+        }
     }
 
 }
