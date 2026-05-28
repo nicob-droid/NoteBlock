@@ -368,11 +368,18 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     if (!isAdded()) return;
-                    List<String> sharedUids = new ArrayList<>();
+                    List<SharedUserItem> sharedUsers = new ArrayList<>();
                     if (querySnapshot != null) {
                         for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                            String uid = doc.getString("sharedUserId");
-                            if (uid != null) sharedUids.add(uid);
+                            String uid = firstNonBlank(doc.getString("sharedUserId"), doc.getId());
+                            if (uid == null) continue;
+
+                            String label = firstNonBlank(
+                                    doc.getString("sharedUserName"),
+                                    doc.getString("sharedUserEmail"),
+                                    uid
+                            );
+                            sharedUsers.add(new SharedUserItem(uid, label));
                         }
                     }
 
@@ -381,20 +388,20 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                     int pad = (int) (16 * getResources().getDisplayMetrics().density);
                     layout.setPadding(pad, pad, pad, pad);
 
-                    if (sharedUids.isEmpty()) {
+                    if (sharedUsers.isEmpty()) {
                         TextView emptyText = new TextView(requireContext());
                         emptyText.setText(getString(R.string.no_shared_users));
                         emptyText.setPadding(0, 0, 0, pad);
                         layout.addView(emptyText);
                     } else {
-                        for (int i = 0; i < sharedUids.size(); i++) {
-                            String uid = sharedUids.get(i);
+                        for (int i = 0; i < sharedUsers.size(); i++) {
+                            SharedUserItem sharedUser = sharedUsers.get(i);
                             LinearLayout row = new LinearLayout(requireContext());
                             row.setOrientation(LinearLayout.HORIZONTAL);
                             row.setPadding(0, pad / 2, 0, pad / 2);
 
                             TextView tv = new TextView(requireContext());
-                            tv.setText(uid);
+                            tv.setText(sharedUser.label);
                             tv.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
                             row.addView(tv);
 
@@ -406,15 +413,15 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                                     .collection("users")
                                     .document(ownerUid)
                                     .collection("shared_users")
-                                    .document(uid)
+                                    .document(sharedUser.uid)
                                     .delete()
                                     .addOnSuccessListener(aVoid -> {
                                         // Nettoyer les notes de ce distant
-                                        removeRemoteUserNotes(uid, ownerUid);
+                                        removeRemoteUserNotes(sharedUser.uid, ownerUid);
 
                                         Toast.makeText(requireContext(), getString(R.string.share_removed), Toast.LENGTH_SHORT).show();
                                         layout.removeView(row);
-                                        sharedUids.remove(uid);
+                                        sharedUsers.remove(sharedUser);
                                         updateManageSharingSummary(auth.getCurrentUser());
 
                                         // Envoyer un broadcast pour que NotesActivity recharge les listeners
@@ -433,6 +440,26 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                             .setNegativeButton(getString(R.string.cancel), null)
                             .show();
                 });
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static class SharedUserItem {
+        final String uid;
+        final String label;
+
+        SharedUserItem(String uid, String label) {
+            this.uid = uid;
+            this.label = label;
+        }
     }
 
     /** Étape 1 : choix entre "Générer un code" ou "Rejoindre avec un code" */

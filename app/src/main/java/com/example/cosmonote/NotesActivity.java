@@ -974,10 +974,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         if (ownerUid == null || ownerUid.trim().isEmpty()) {
             return;
         }
+        String normalizedOwnerUid = ownerUid.trim();
 
         FirebaseFirestore.getInstance()
                 .collection("users")
-                .document(ownerUid)
+                .document(normalizedOwnerUid)
                 .collection("shared_users")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
@@ -991,6 +992,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                             if (uid == null || uid.trim().isEmpty()) {
                                 continue;
                             }
+                            uid = uid.trim();
 
                             String label = firstNonEmpty(
                                     doc.getString("sharedUserName"),
@@ -1002,32 +1004,40 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                             labels.put(uid, label);
                         }
                     }
-                    ownerSharedUserLabels.put(ownerUid, labels);
+                    ownerSharedUserLabels.put(normalizedOwnerUid, labels);
+
+                    // Recalculer les résumés "Partagée avec" déjà en base locale avec les nouveaux labels.
+                    FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                    if (currentUser != null) {
+                        fetchNotesFromFirestore(this, normalizedOwnerUid, currentUser.getUid());
+                    }
                     refreshAllNotes();
                 })
-                .addOnFailureListener(e -> Log.w(TAG, "Impossible de charger les labels shared_users pour owner=" + ownerUid, e));
+                .addOnFailureListener(e -> Log.w(TAG, "Impossible de charger les labels shared_users pour owner=" + normalizedOwnerUid, e));
     }
 
     private String resolveSharedUserLabel(String ownerUid, String uid) {
         if (uid == null || uid.trim().isEmpty()) {
             return "";
         }
+        String normalizedUid = uid.trim();
+        String normalizedOwnerUid = ownerUid != null ? ownerUid.trim() : null;
 
-        Map<String, String> labels = ownerSharedUserLabels.get(ownerUid);
+        Map<String, String> labels = normalizedOwnerUid != null ? ownerSharedUserLabels.get(normalizedOwnerUid) : null;
         if (labels != null) {
-            String cached = labels.get(uid);
+            String cached = labels.get(normalizedUid);
             if (cached != null && !cached.trim().isEmpty()) {
                 return cached;
             }
         }
 
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        if (currentUser != null && uid.equals(currentUser.getUid())) {
-            String meLabel = firstNonEmpty(currentUser.getDisplayName(), currentUser.getEmail(), uid);
+        if (currentUser != null && normalizedUid.equals(currentUser.getUid())) {
+            String meLabel = firstNonEmpty(currentUser.getDisplayName(), currentUser.getEmail(), normalizedUid);
             return meLabel;
         }
 
-        return uid;
+        return normalizedUid;
     }
 
     private String resolveOwnerDisplayLabelForNote(String ownerUid, String currentUserId) {

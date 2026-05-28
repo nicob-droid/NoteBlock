@@ -23,10 +23,10 @@
     <PreferenceCategory
         android:title="@string/sharing_notes"
         android:key="@string/sharing_notes" >
-        <Preference
-            android:key="@string/key_share_id"
-            android:title="@string/share_id_title"
-            android:summary="@string/share_id_summary" />
+<!--        <Preference-->
+<!--            android:key="@string/key_share_id"-->
+<!--            android:title="@string/share_id_title"-->
+<!--            android:summary="@string/share_id_summary" />-->
 
         <Preference
             android:key="@string/key_manage_sharing"
