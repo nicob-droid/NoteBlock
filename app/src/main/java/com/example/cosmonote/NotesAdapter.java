@@ -7,6 +7,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
@@ -70,6 +71,33 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         String currentUid = currentUser != null ? currentUser.getUid() : null;
         long now = System.currentTimeMillis();
 
+        boolean isSynced = !TextUtils.isEmpty(note.getFirebaseDocId());
+        boolean hasSharedUsers = !TextUtils.isEmpty(note.getSharedWithSummary());
+        if (!isSynced) {
+            holder.syncStatus.setText(R.string.note_status_local);
+            holder.syncIcon.setImageResource(android.R.drawable.presence_offline);
+        } else if (hasSharedUsers) {
+            holder.syncStatus.setText(holder.itemView.getContext().getString(
+                    R.string.note_status_shared_with_users,
+                    note.getSharedWithSummary()
+            ));
+            holder.syncIcon.setImageResource(android.R.drawable.ic_menu_share);
+        } else if (!TextUtils.isEmpty(currentUid)
+                && !TextUtils.isEmpty(note.getOwnerUid())
+                && !currentUid.equals(note.getOwnerUid())) {
+            String ownerLabel = !TextUtils.isEmpty(note.getOwnerDisplayLabel())
+                    ? note.getOwnerDisplayLabel()
+                    : note.getOwnerUid();
+            holder.syncStatus.setText(holder.itemView.getContext().getString(
+                    R.string.note_status_synced_from_user,
+                    ownerLabel
+            ));
+            holder.syncIcon.setImageResource(android.R.drawable.presence_online);
+        } else {
+            holder.syncStatus.setText(R.string.note_status_synced_private);
+            holder.syncIcon.setImageResource(android.R.drawable.presence_online);
+        }
+
         NoteLockState lockState = lockStates.get(note.getFirebaseDocId());
         boolean lockedByOther = lockState != null && lockState.isLockedByOtherUser(currentUid, now);
 
@@ -109,9 +137,11 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
     }
 
     public static class NoteViewHolder extends RecyclerView.ViewHolder {
-        TextView title, content, lockStatus;
+        TextView title, content, lockStatus, syncStatus;
         CardView cardView;
         View lockBadge;
+        View syncBadge;
+        android.widget.ImageView syncIcon;
         ImageButton buttonColorPicker;
 
         public NoteViewHolder(@NonNull View itemView) {
@@ -119,6 +149,9 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
             cardView = itemView.findViewById(R.id.card_view_note);
             title = itemView.findViewById(R.id.note_title);
             content = itemView.findViewById(R.id.note_content);
+            syncBadge = itemView.findViewById(R.id.note_sync_badge);
+            syncIcon = itemView.findViewById(R.id.note_sync_icon);
+            syncStatus = itemView.findViewById(R.id.note_sync_status);
             lockBadge = itemView.findViewById(R.id.note_lock_badge);
             lockStatus = itemView.findViewById(R.id.note_lock_status);
             buttonColorPicker = itemView.findViewById(R.id.button_color_picker);

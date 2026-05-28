@@ -12,7 +12,8 @@ service cloud.firestore {
 
     function isSharedWith(userId) {
       return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/shared_users/$(userId));
+        && (exists(/databases/$(database)/documents/users/$(request.auth.uid)/shared_users/$(userId))
+        || exists(/databases/$(database)/documents/users/$(userId)/shared_users/$(request.auth.uid)));
     }
 
     function canAccessUserNotes(userId) {
@@ -44,7 +45,8 @@ service cloud.firestore {
       match /notes/{noteId} {
         allow read: if isOwner(userId)
           || hasSharedWithAccess(resource.data)
-          || hasLegacySharedAccess(userId, resource.data);
+          || hasLegacySharedAccess(userId, resource.data)
+          || isSharedWith(userId);
 
         allow create: if isOwner(userId)
           && request.resource.data.ownerUid == userId

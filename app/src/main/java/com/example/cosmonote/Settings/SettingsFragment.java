@@ -451,8 +451,13 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
     private void generateShareCode(String ownerUid) {
         String code = generateRandomCode(6);
         FirebaseFirestore db = FirebaseFirestore.getInstance();
+        FirebaseUser ownerUser = auth.getCurrentUser();
         Map<String, Object> data = new HashMap<>();
         data.put("ownerUid", ownerUid);
+        if (ownerUser != null) {
+            data.put("ownerEmail", ownerUser.getEmail());
+            data.put("ownerName", ownerUser.getDisplayName());
+        }
         data.put("expiresAt", new Date(System.currentTimeMillis() + 10 * 60 * 1000L));
 
         db.collection("share_codes").document(code).set(data)
@@ -520,16 +525,25 @@ public class SettingsFragment extends PreferenceFragmentCompat implements LoginD
                         Toast.makeText(requireContext(), getString(R.string.cant_share_with_yourself), Toast.LENGTH_SHORT).show();
                         return;
                     }
+                    String ownerEmail = doc.getString("ownerEmail");
+                    String ownerName = doc.getString("ownerName");
+                    FirebaseUser joinerUser = auth.getCurrentUser();
 
                     // B voit les notes de A
                     Map<String, Object> bSeesA = new HashMap<>();
                     bSeesA.put("ownerId", ownerUid);
                     bSeesA.put("sharedUserId", ownerUid);
+                    bSeesA.put("sharedUserEmail", ownerEmail);
+                    bSeesA.put("sharedUserName", ownerName);
 
                     // A voit les notes de B
                     Map<String, Object> aSeesB = new HashMap<>();
                     aSeesB.put("ownerId", joinerUid);
                     aSeesB.put("sharedUserId", joinerUid);
+                    if (joinerUser != null) {
+                        aSeesB.put("sharedUserEmail", joinerUser.getEmail());
+                        aSeesB.put("sharedUserName", joinerUser.getDisplayName());
+                    }
 
                     db.batch()
                             .set(db.collection("users").document(joinerUid)

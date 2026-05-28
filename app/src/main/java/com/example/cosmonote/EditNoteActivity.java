@@ -2,7 +2,6 @@ package com.example.cosmonote;
 
 import com.cosmonote.app.R;
 
-import static com.example.cosmonote.NotesActivity.EXTRA_CREATE_SYNCED;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_COLOR;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_ID;
 import static com.example.cosmonote.NotesActivity.EXTRA_NOTE_OWNER_UID;
@@ -51,16 +50,15 @@ public class EditNoteActivity extends BaseActivity  {
     private int selectedColor = Color.WHITE;  // Valeur par défaut (blanc)
     private FloatingActionButton btnDelete, btnShare;
 
-    private NoteDatabase db;
-    private long noteId;
-    private Note note;
-    private String firebaseDocId; // UUID unique pour Firestore
-    private int selectedPosition = 0;  // par défaut première position
-    private boolean isNoteDeleted = false;
-    private boolean createSyncedOnCreate = false;
-    private String noteOwnerUid;
-    private boolean hasActiveLock = false;
-    private boolean isReadOnlyLocked = false;
+     private NoteDatabase db;
+     private long noteId;
+     private Note note;
+     private String firebaseDocId; // UUID unique pour Firestore
+     private int selectedPosition = 0;  // par défaut première position
+     private boolean isNoteDeleted = false;
+     private String noteOwnerUid;
+     private boolean hasActiveLock = false;
+     private boolean isReadOnlyLocked = false;
     private final Handler lockHandler = new Handler(Looper.getMainLooper());
     private final Runnable lockHeartbeatRunnable = new Runnable() {
         @Override
@@ -118,14 +116,13 @@ public class EditNoteActivity extends BaseActivity  {
         titleInput = findViewById(R.id.edit_note_title);
         contentInput = findViewById(R.id.edit_note_content);
         btnDelete = findViewById(R.id.fab_delete);
-        ll_delete = findViewById(R.id.ll_delete);
-        btnShare = findViewById(R.id.fab_share);
-        noteId = getIntent().getLongExtra(EXTRA_NOTE_ID, -1);
-        selectedColor = getIntent().getIntExtra(EXTRA_NOTE_COLOR, Color.WHITE);
-        selectedPosition = getIntent().getIntExtra(EXTRA_NOTE_POSITION, -1);
-        createSyncedOnCreate = getIntent().getBooleanExtra(EXTRA_CREATE_SYNCED, false);
-        noteOwnerUid = getIntent().getStringExtra(EXTRA_NOTE_OWNER_UID);
-    }
+         ll_delete = findViewById(R.id.ll_delete);
+         btnShare = findViewById(R.id.fab_share);
+         noteId = getIntent().getLongExtra(EXTRA_NOTE_ID, -1);
+         selectedColor = getIntent().getIntExtra(EXTRA_NOTE_COLOR, Color.WHITE);
+         selectedPosition = getIntent().getIntExtra(EXTRA_NOTE_POSITION, -1);
+         noteOwnerUid = getIntent().getStringExtra(EXTRA_NOTE_OWNER_UID);
+     }
 
     private void initNoteFromDatabase() {
         db = new NoteDatabase(this);
@@ -413,74 +410,73 @@ public class EditNoteActivity extends BaseActivity  {
         return deleted;
     }
 
-    private void saveNote() {
-        Log.i(TAG, "save note");
+     private void saveNote() {
+         Log.i(TAG, "save note");
 
-        if (isReadOnlyLocked) {
-            return;
-        }
+         if (isReadOnlyLocked) {
+             return;
+         }
 
-        String title = titleInput.getText().toString().trim();
-        String content = contentInput.getText().toString().trim();
+         String title = titleInput.getText().toString().trim();
+         String content = contentInput.getText().toString().trim();
 
-        if (title.isEmpty()) return;
+         if (title.isEmpty()) return;
 
-        int position = selectedPosition;
-        long id;
+         int position = selectedPosition;
+         long id;
 
-        try {
-            if (noteId == -1) {
-                FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-                boolean canCreateSynced = createSyncedOnCreate && currentUser != null;
-                noteOwnerUid = canCreateSynced ? currentUser.getUid() : null;
+         try {
+             if (noteId == -1) {
+                 // Les notes sont TOUJOURS créées en LOCAL (sans firebaseDocId, sans ownerUid)
+                 // L'utilisateur pourra les synchroniser explicitement via l'action "Partager > Gérer l'accès"
+                 firebaseDocId = null;
+                 noteOwnerUid = null;
+                 id = db.insertNote(firebaseDocId, title, content, selectedColor, position, noteOwnerUid);
+                 noteId = id;
+                 Log.i(TAG, "Note créée en LOCAL avec id = " + id);
+             } else {
+                 // Modification : update, id reste le même
+                 db.updateNote(noteId, title, content, selectedColor, position);
+                 id = noteId;
+                 Log.i(TAG, "Note modifiée id = " + id);
+             }
 
-                // Création depuis onglet Synced -> note synchronisée ; sinon note locale.
-                firebaseDocId = canCreateSynced ? java.util.UUID.randomUUID().toString() : null;
-                id = db.insertNote(firebaseDocId, title, content, selectedColor, position, noteOwnerUid);
-                Log.i(TAG, "Note créée avec id = " + id + ", firebaseDocId = " + firebaseDocId);
-            } else {
-                // Modification : update, id reste le même
-                db.updateNote(noteId, title, content, selectedColor, position);
-                id = noteId;
-                Log.i(TAG, "Note modifiée id = " + id);
-            }
+             // Création du timestamp courant (millis depuis epoch)
+             long timestamp = System.currentTimeMillis();
 
-            // Création du timestamp courant (millis depuis epoch)
-            long timestamp = System.currentTimeMillis();
+             // Construire Note avec l'id correct
+             Note note = new Note((int) id, firebaseDocId, noteOwnerUid, title, content, selectedColor, position, timestamp);
 
-            // Construire Note avec l'id correct
-            Note note = new Note((int) id, firebaseDocId, noteOwnerUid, title, content, selectedColor, position, timestamp);
+             // Synchroniser uniquement les notes déjà synchronisées.
+             if(!isNoteDeleted && !TextUtils.isEmpty(firebaseDocId)) {
+                 syncNoteToFirestore(note);
+             }
 
-            // Synchroniser uniquement les notes déjà synchronisées.
-            if(!isNoteDeleted && !TextUtils.isEmpty(firebaseDocId)) {
-                syncNoteToFirestore(note);
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "Erreur saveNote", e);
-        }
-    }
+         } catch (Exception e) {
+             Log.e(TAG, "Erreur saveNote", e);
+         }
+     }
 
 
-    private void showShareActionsDialog() {
-        String[] options = new String[] {
-                getString(R.string.share_note_text_option),
-                getString(R.string.manage_note_access_option)
-        };
+     private void showShareActionsDialog() {
+         String[] options = new String[] {
+                 getString(R.string.manage_note_access_option),
+                 getString(R.string.share_note_text_option)
+         };
 
-        new AlertDialog.Builder(this)
-                .setTitle(getString(R.string.share_note_actions_title))
-                .setItems(options, (dialog, which) -> {
-                    if (which == 0) {
-                        shareNoteText();
-                    } else {
-                        manageNoteAccess();
-                    }
-                })
-                .show();
-    }
+         new AlertDialog.Builder(this)
+                 .setTitle(getString(R.string.share_note_actions_title))
+                 .setItems(options, (dialog, which) -> {
+                     if (which == 0) {
+                         manageNoteAccess();
+                     } else {
+                         shareNoteText();
+                     }
+                 })
+                 .show();
+     }
 
-    private void shareNoteText() {
+     private void shareNoteText() {
         String noteTitle = titleInput.getText().toString();
         String noteContent = contentInput.getText().toString();
         if ((!noteTitle.isEmpty()) && (!noteContent.isEmpty())) {
@@ -499,12 +495,23 @@ public class EditNoteActivity extends BaseActivity  {
             Toast.makeText(this, getString(R.string.message_connect_to_share), Toast.LENGTH_SHORT).show();
             return;
         }
-        if (TextUtils.isEmpty(firebaseDocId)) {
-            Toast.makeText(this, getString(R.string.manage_note_access_requires_synced), Toast.LENGTH_SHORT).show();
-            return;
+
+        // Garantit que la note existe localement avant gestion d'accès.
+        if (noteId == -1) {
+            saveNote();
+            if (noteId == -1) {
+                Toast.makeText(this, getString(R.string.title_empty), Toast.LENGTH_SHORT).show();
+                return;
+            }
         }
 
-        String ownerUid = resolveNoteOwnerUid(currentUser);
+        String ownerUid = currentUser.getUid();
+        boolean wasLocalNote = TextUtils.isEmpty(firebaseDocId);
+
+        if (!wasLocalNote) {
+            ownerUid = resolveNoteOwnerUid(currentUser);
+        }
+
         if (TextUtils.isEmpty(ownerUid)) {
             Toast.makeText(this, getString(R.string.manage_note_access_requires_synced), Toast.LENGTH_SHORT).show();
             return;
@@ -514,36 +521,34 @@ public class EditNoteActivity extends BaseActivity  {
             return;
         }
 
+        final String ownerUidFinal = ownerUid;
+
         FirebaseFirestore firestore = FirebaseFirestore.getInstance();
-        DocumentReference noteRef = firestore.collection("users")
-                .document(ownerUid)
-                .collection("notes")
-                .document(firebaseDocId);
 
         firestore.collection("users")
-                .document(ownerUid)
+                .document(ownerUidFinal)
                 .collection("shared_users")
                 .get()
-                .addOnSuccessListener(sharedUsersSnapshot -> noteRef.get().addOnSuccessListener(noteDoc -> {
+                .addOnSuccessListener(sharedUsersSnapshot -> {
                     List<String> candidates = new ArrayList<>();
+                    Map<String, String> candidateLabels = new HashMap<>();
                     if (sharedUsersSnapshot != null) {
                         for (DocumentSnapshot doc : sharedUsersSnapshot.getDocuments()) {
                             String sharedUid = doc.getString("sharedUserId");
                             if (TextUtils.isEmpty(sharedUid)) {
                                 sharedUid = doc.getId();
                             }
-                            if (!TextUtils.isEmpty(sharedUid) && !sharedUid.equals(ownerUid)) {
+                            if (!TextUtils.isEmpty(sharedUid) && !sharedUid.equals(ownerUidFinal)) {
                                 candidates.add(sharedUid);
-                            }
-                        }
-                    }
 
-                    Map<String, Object> currentSharedWith = new HashMap<>();
-                    Object sharedWithObj = noteDoc.get("sharedWith");
-                    if (sharedWithObj instanceof Map) {
-                        for (Map.Entry<?, ?> entry : ((Map<?, ?>) sharedWithObj).entrySet()) {
-                            if (entry.getKey() instanceof String && Boolean.TRUE.equals(entry.getValue())) {
-                                currentSharedWith.put((String) entry.getKey(), true);
+                                String label = doc.getString("sharedUserName");
+                                if (TextUtils.isEmpty(label)) {
+                                    label = doc.getString("sharedUserEmail");
+                                }
+                                if (TextUtils.isEmpty(label)) {
+                                    label = sharedUid;
+                                }
+                                candidateLabels.put(sharedUid, label);
                             }
                         }
                     }
@@ -553,10 +558,29 @@ public class EditNoteActivity extends BaseActivity  {
                         return;
                     }
 
-                    String[] items = candidates.toArray(new String[0]);
+                    String[] items = new String[candidates.size()];
                     boolean[] checked = new boolean[items.length];
+
+                    Map<String, Object> currentSharedWith = new HashMap<>();
+                    if (!wasLocalNote) {
+                        Note localNote = db.getNoteById(noteId);
+                        String currentSummary = localNote != null ? localNote.getSharedWithSummary() : null;
+                        for (int i = 0; i < candidates.size(); i++) {
+                            String uid = candidates.get(i);
+                            String label = candidateLabels.get(uid);
+                            items[i] = label;
+                            if (!TextUtils.isEmpty(currentSummary) && currentSummary.contains(label)) {
+                                currentSharedWith.put(uid, true);
+                            }
+                        }
+                    } else {
+                        for (int i = 0; i < candidates.size(); i++) {
+                            items[i] = candidateLabels.get(candidates.get(i));
+                        }
+                    }
+
                     for (int i = 0; i < items.length; i++) {
-                        checked[i] = Boolean.TRUE.equals(currentSharedWith.get(items[i]));
+                        checked[i] = Boolean.TRUE.equals(currentSharedWith.get(candidates.get(i)));
                     }
 
                     new AlertDialog.Builder(this)
@@ -564,19 +588,55 @@ public class EditNoteActivity extends BaseActivity  {
                             .setMultiChoiceItems(items, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
                             .setPositiveButton(getString(R.string.save), (dialog, which) -> {
                                 Map<String, Object> newSharedWith = new HashMap<>();
-                                for (int i = 0; i < items.length; i++) {
+                                StringBuilder sharedSummary = new StringBuilder();
+                                for (int i = 0; i < candidates.size(); i++) {
                                     if (checked[i]) {
-                                        newSharedWith.put(items[i], true);
+                                        String uid = candidates.get(i);
+                                        String label = candidateLabels.get(uid);
+                                        newSharedWith.put(uid, true);
+                                        if (sharedSummary.length() > 0) {
+                                            sharedSummary.append(", ");
+                                        }
+                                        sharedSummary.append(label);
                                     }
                                 }
 
+                                if (wasLocalNote && newSharedWith.isEmpty()) {
+                                    Toast.makeText(this, getString(R.string.note_access_select_user_first), Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+
+                                if (wasLocalNote) {
+                                    firebaseDocId = java.util.UUID.randomUUID().toString();
+                                    noteOwnerUid = ownerUidFinal;
+                                    db.updateNoteFirebaseInfo(noteId, firebaseDocId, ownerUidFinal);
+                                }
+
+                                DocumentReference noteRef = firestore.collection("users")
+                                        .document(ownerUidFinal)
+                                        .collection("notes")
+                                        .document(firebaseDocId);
+
                                 Map<String, Object> updates = new HashMap<>();
-                                updates.put("ownerUid", ownerUid);
+                                updates.put("firebaseDocId", firebaseDocId);
+                                updates.put("ownerUid", ownerUidFinal);
+                                updates.put("id", noteId);
+                                updates.put("title", titleInput.getText().toString().trim());
+                                updates.put("content", contentInput.getText().toString().trim());
+                                updates.put("color", selectedColor);
+                                updates.put("position", selectedPosition);
                                 updates.put("sharedWith", newSharedWith);
                                 updates.put("timestamp", Timestamp.now());
 
                                 noteRef.set(updates, SetOptions.merge())
-                                        .addOnSuccessListener(aVoid -> Toast.makeText(this, getString(R.string.note_access_saved), Toast.LENGTH_SHORT).show())
+                                        .addOnSuccessListener(aVoid -> {
+                                            if (newSharedWith.isEmpty()) {
+                                                db.updateNoteSharedWithSummary(noteId, null);
+                                            } else {
+                                                db.updateNoteSharedWithSummary(noteId, sharedSummary.toString());
+                                            }
+                                            Toast.makeText(this, getString(R.string.note_access_saved), Toast.LENGTH_SHORT).show();
+                                        })
                                         .addOnFailureListener(e -> {
                                             Log.e(TAG, "Impossible de sauvegarder le partage par note", e);
                                             Toast.makeText(this, getString(R.string.note_access_save_error), Toast.LENGTH_SHORT).show();
@@ -584,10 +644,7 @@ public class EditNoteActivity extends BaseActivity  {
                             })
                             .setNegativeButton(getString(R.string.cancel), null)
                             .show();
-                }).addOnFailureListener(e -> {
-                    Log.e(TAG, "Lecture note impossible pour gérer accès", e);
-                    Toast.makeText(this, getString(R.string.note_access_save_error), Toast.LENGTH_SHORT).show();
-                }))
+                })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Lecture shared_users impossible", e);
                     Toast.makeText(this, getString(R.string.note_access_save_error), Toast.LENGTH_SHORT).show();
