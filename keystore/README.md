@@ -13,9 +13,9 @@ keytool -genkey -v -keystore cosmonote-release.jks -keyalg RSA -keysize 2048 -va
 Définissez ces variables avant de builder en release :
 
 ```
-KEYSTORE_PASSWORD=votre_mot_de_passe
+KEYSTORE_PASSWORD=Niafron52100@
 KEY_ALIAS=cosmonote
-KEY_PASSWORD=votre_mot_de_passe_clé
+KEY_PASSWORD=Niafron52100@
 ```
 
 ## ⚠️ Ne commitez JAMAIS le fichier .jks dans git !

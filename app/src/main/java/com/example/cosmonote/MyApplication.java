@@ -4,7 +4,7 @@ import android.app.Application;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 
-
+import com.google.android.gms.ads.MobileAds;
 import com.google.firebase.FirebaseApp;
 
 public class MyApplication extends Application {
@@ -16,7 +16,10 @@ public class MyApplication extends Application {
         // 1) Init Firebase
         FirebaseApp.initializeApp(this);
 
-        // 2) Création du canal de notification
+        // 2) Init AdMob
+        MobileAds.initialize(this, initializationStatus -> {});
+
+        // 3) Création du canal de notification
         createNotificationChannel();
     }
 

@@ -44,6 +44,9 @@ import com.google.android.gms.tasks.Tasks;
 import android.content.BroadcastReceiver;
 import android.content.IntentFilter;
 
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,6 +74,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     private final Map<String, NoteLockState> activeNoteLocks = new ConcurrentHashMap<>();
     private final Map<String, Map<String, String>> ownerSharedUserLabels = new ConcurrentHashMap<>();
     private String lastListenerUserId;
+    private AdView adView;
 
 
     @Override
@@ -114,6 +118,11 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
                 .setPositiveButton(getString(R.string.yes), (dialog, which) -> deleteAllNotes())
                 .setNegativeButton(getString(R.string.no), null)
                 .show());
+
+        // Charger la bannière AdMob
+        adView = findViewById(R.id.adView);
+        AdRequest adRequest = new AdRequest.Builder().build();
+        adView.loadAd(adRequest);
     }
 
     private void applySavedBackgroundImage() {
@@ -142,6 +151,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
     @Override
     protected void onResume() {
         super.onResume();
+        if (adView != null) adView.resume();
 
         applySavedBackgroundImage();
 
@@ -288,6 +298,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
     @Override
     protected void onPause() {
+        if (adView != null) adView.pause();
         super.onPause();
         // Ne pas supprimer les listeners ici pour garder la synchro en arrière-plan
         // Les listeners sont supprimés dans onDestroy
@@ -299,6 +310,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
 
     @Override
     protected void onDestroy() {
+        if (adView != null) adView.destroy();
         super.onDestroy();
         for (ListenerRegistration l : activeListeners) {
             l.remove();

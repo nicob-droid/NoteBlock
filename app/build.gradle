@@ -8,6 +8,13 @@ def versionMajor = project.VERSION_MAJOR.toInteger()
 def versionMinor = project.VERSION_MINOR.toInteger()
 def versionPatch = project.VERSION_PATCH.toInteger()
 
+// Charger signing.properties s'il existe
+def signingPropsFile = rootProject.file('signing.properties')
+def signingProps = new Properties()
+if (signingPropsFile.exists()) {
+    signingProps.load(new FileInputStream(signingPropsFile))
+}
+
 android {
     namespace 'com.cosmonote.app'
     compileSdk 35
@@ -32,10 +39,18 @@ android {
 
     signingConfigs {
         release {
-            storeFile file('../keystore/cosmonote-release.jks')
-            storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias System.getenv("KEY_ALIAS") ?: "cosmonote"
-            keyPassword System.getenv("KEY_PASSWORD") ?: ""
+            def configuredStoreFile = signingProps.getProperty('STORE_FILE')
+            File resolvedStoreFile
+            if (configuredStoreFile != null && !configuredStoreFile.trim().isEmpty()) {
+                File candidate = new File(configuredStoreFile)
+                resolvedStoreFile = candidate.isAbsolute() ? candidate : rootProject.file(configuredStoreFile)
+            } else {
+                resolvedStoreFile = rootProject.file('keystore/cosmonote-release.jks')
+            }
+            storeFile resolvedStoreFile
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: signingProps.getProperty('STORE_PASSWORD', "")
+            keyAlias System.getenv("KEY_ALIAS") ?: signingProps.getProperty('KEY_ALIAS', "cosmonote")
+            keyPassword System.getenv("KEY_PASSWORD") ?: signingProps.getProperty('KEY_PASSWORD', "")
         }
     }
 
@@ -68,6 +83,9 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-auth:23.2.1'
     implementation 'com.google.android.flexbox:flexbox:3.0.0'
+
+    // AdMob
+    implementation 'com.google.android.gms:play-services-ads:24.4.0'
 
 }
 
