@@ -44,6 +44,11 @@ public class EditNoteActivity extends BaseActivity  {
     private static final String TAG = "EditNoteActivity";
     private static final long LOCK_TIMEOUT_MS = 60_000L;
     private static final long LOCK_HEARTBEAT_MS = 20_000L;
+    private static final String STATE_NOTE_ID = "state_note_id";
+    private static final String STATE_FIREBASE_DOC_ID = "state_firebase_doc_id";
+    private static final String STATE_NOTE_OWNER_UID = "state_note_owner_uid";
+    private static final String STATE_SELECTED_COLOR = "state_selected_color";
+    private static final String STATE_SELECTED_POSITION = "state_selected_position";
     private EditText titleInput;
     private EditText contentInput;
     private LinearLayout ll_delete;
@@ -74,7 +79,17 @@ public class EditNoteActivity extends BaseActivity  {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // init activity view
-        initView();
+        initView(savedInstanceState);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putLong(STATE_NOTE_ID, noteId);
+        outState.putString(STATE_FIREBASE_DOC_ID, firebaseDocId);
+        outState.putString(STATE_NOTE_OWNER_UID, noteOwnerUid);
+        outState.putInt(STATE_SELECTED_COLOR, selectedColor);
+        outState.putInt(STATE_SELECTED_POSITION, selectedPosition);
     }
 
     @Override
@@ -109,7 +124,7 @@ public class EditNoteActivity extends BaseActivity  {
         lockHandler.removeCallbacks(lockHeartbeatRunnable);
     }
 
-    private void initView() {
+    private void initView(Bundle savedInstanceState) {
         Log.i(TAG, "initView");
         setContentView(R.layout.activity_edit_note);
 
@@ -122,6 +137,14 @@ public class EditNoteActivity extends BaseActivity  {
          selectedColor = getIntent().getIntExtra(EXTRA_NOTE_COLOR, Color.WHITE);
          selectedPosition = getIntent().getIntExtra(EXTRA_NOTE_POSITION, -1);
          noteOwnerUid = getIntent().getStringExtra(EXTRA_NOTE_OWNER_UID);
+
+         if (savedInstanceState != null) {
+             noteId = savedInstanceState.getLong(STATE_NOTE_ID, noteId);
+             firebaseDocId = savedInstanceState.getString(STATE_FIREBASE_DOC_ID, firebaseDocId);
+             noteOwnerUid = savedInstanceState.getString(STATE_NOTE_OWNER_UID, noteOwnerUid);
+             selectedColor = savedInstanceState.getInt(STATE_SELECTED_COLOR, selectedColor);
+             selectedPosition = savedInstanceState.getInt(STATE_SELECTED_POSITION, selectedPosition);
+         }
      }
 
     private void initNoteFromDatabase() {
