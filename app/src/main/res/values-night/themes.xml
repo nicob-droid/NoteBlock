@@ -13,8 +13,8 @@
         <!-- Couleur de fond -->
         <item name="android:windowBackground">@color/colorWindowBackground</item>
 
-        <!-- Barre de statut -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <!-- Affichage bord à bord (edge-to-edge) géré via EdgeToEdge.enable() et les insets.
+             android:statusBarColor est déprécié depuis Android 15 (SDK 35) et a été retiré. -->
     </style>
 
     <style name="Theme.NoteBlock.NoActionBar" parent="Theme.MaterialComponents.DayNight.DarkActionBar">

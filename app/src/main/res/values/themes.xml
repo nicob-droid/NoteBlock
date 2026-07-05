@@ -11,10 +11,10 @@
         <item name="colorSecondaryVariant">@color/colorSecondaryVariant</item>
         <item name="colorOnSecondary">@color/colorOnSecondary</item>
         <item name="android:windowBackground">@color/colorWindowBackground</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <!-- Affichage bord à bord (edge-to-edge) géré via EdgeToEdge.enable() et les insets.
+             Les attributs android:statusBarColor / android:navigationBarColor sont dépréciés
+             depuis Android 15 (SDK 35) et ont été retirés. -->
         <!-- Customize your theme here. -->
-        <item name="android:navigationBarColor">?attr/colorPrimaryVariant</item>
         <item name="android:fitsSystemWindows">true</item>
     </style>
 
