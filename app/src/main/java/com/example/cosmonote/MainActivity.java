@@ -7,6 +7,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.core.splashscreen.SplashScreen;
 
 import com.example.cosmonote.Utils.HashUtils;
 import com.example.cosmonote.Utils.NotePreferences;
@@ -17,6 +18,9 @@ public class MainActivity extends BaseActivity  {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Installe l'écran de démarrage (splash) avant super.onCreate().
+        // Évite l'écran blanc pendant l'initialisation de l'application.
+        SplashScreen.installSplashScreen(this);
         super.onCreate(savedInstanceState);
 
         // Si le PIN n'est pas activé, aller directement aux notes

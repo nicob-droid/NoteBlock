@@ -27,4 +27,14 @@
         <item name="colorOnPrimary">@color/colorOnPrimary</item>
         <item name="android:windowBackground">@color/colorWindowBackground</item>
     </style>
+
+    <!-- Thème de l'écran de démarrage (splash), API AndroidX SplashScreen -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Couleur de fond du splash -->
+        <item name="windowSplashScreenBackground">@color/colorPrimary</item>
+        <!-- Icône centrée affichée pendant le démarrage (logo réel de l'app) -->
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_round</item>
+        <!-- Thème appliqué à l'activité une fois le splash terminé -->
+        <item name="postSplashScreenTheme">@style/Theme.NoteBlocked</item>
+    </style>
 </resources>
