@@ -19,7 +19,11 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.Timestamp;
@@ -83,6 +87,13 @@ public class EditNoteActivity extends BaseActivity  {
     }
 
     @Override
+    public boolean onSupportNavigateUp() {
+        // finish() déclenche onPause -> saveNote(), la note est donc sauvegardée au retour.
+        finish();
+        return true;
+    }
+
+    @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putLong(STATE_NOTE_ID, noteId);
@@ -128,11 +139,23 @@ public class EditNoteActivity extends BaseActivity  {
         Log.i(TAG, "initView");
         setContentView(R.layout.activity_edit_note);
 
+        // Bouton retour (Up) dans la barre d'action, comme dans les Paramètres.
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
+        setTitle(R.string.edit_note_screen_title);
+
         titleInput = findViewById(R.id.edit_note_title);
         contentInput = findViewById(R.id.edit_note_content);
         btnDelete = findViewById(R.id.fab_delete);
          ll_delete = findViewById(R.id.ll_delete);
          btnShare = findViewById(R.id.fab_share);
+
+         // Edge-to-edge : reporter les insets système en padding pour ne pas
+         // coller le contenu aux bords (barres de statut / navigation, encoche).
+         applyWindowInsets();
+
          noteId = getIntent().getLongExtra(EXTRA_NOTE_ID, -1);
          selectedColor = getIntent().getIntExtra(EXTRA_NOTE_COLOR, Color.WHITE);
          selectedPosition = getIntent().getIntExtra(EXTRA_NOTE_POSITION, -1);
@@ -146,6 +169,53 @@ public class EditNoteActivity extends BaseActivity  {
              selectedPosition = savedInstanceState.getInt(STATE_SELECTED_POSITION, selectedPosition);
          }
      }
+
+    /**
+     * Applique les insets système (barres de statut/navigation, encoche, clavier)
+     * en padding sur la zone de saisie et sur la barre de boutons, afin que le
+     * contenu ne soit plus collé aux bords en mode edge-to-edge.
+     */
+    private void applyWindowInsets() {
+        final View container = findViewById(R.id.edit_note_container);
+        final View fabContainer = findViewById(R.id.fab_container);
+
+        // Zone de saisie : on ajoute le haut et les côtés (pas le bas, géré par la barre).
+        if (container != null) {
+            final int baseLeft = container.getPaddingLeft();
+            final int baseTop = container.getPaddingTop();
+            final int baseRight = container.getPaddingRight();
+            final int baseBottom = container.getPaddingBottom();
+
+            ViewCompat.setOnApplyWindowInsetsListener(container, (v, insets) -> {
+                Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                v.setPadding(
+                        baseLeft + bars.left,
+                        baseTop + bars.top,
+                        baseRight + bars.right,
+                        baseBottom);
+                return insets;
+            });
+        }
+
+        // Barre de boutons : on ajoute le bas (barre de navigation + clavier) et les côtés.
+        if (fabContainer != null) {
+            final int baseLeft = fabContainer.getPaddingLeft();
+            final int baseTop = fabContainer.getPaddingTop();
+            final int baseRight = fabContainer.getPaddingRight();
+            final int baseBottom = fabContainer.getPaddingBottom();
+
+            ViewCompat.setOnApplyWindowInsetsListener(fabContainer, (v, insets) -> {
+                Insets bars = insets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
+                v.setPadding(
+                        baseLeft + bars.left,
+                        baseTop,
+                        baseRight + bars.right,
+                        baseBottom + bars.bottom);
+                return insets;
+            });
+        }
+    }
 
     private void initNoteFromDatabase() {
         db = new NoteDatabase(this);

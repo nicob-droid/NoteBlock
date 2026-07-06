@@ -67,6 +67,18 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         holder.content.setText(note.getContent());
         holder.cardView.setCardBackgroundColor(note.getColor());
 
+        // Impose la marge interne à chaque bind via les LayoutParams (insensible aux
+        // réinitialisations de padding/fond qui surviennent après un retour de veille).
+        if (holder.row != null && holder.row.getLayoutParams() instanceof android.view.ViewGroup.MarginLayoutParams) {
+            int m = Math.round(12 * holder.row.getResources().getDisplayMetrics().density);
+            android.view.ViewGroup.MarginLayoutParams lp =
+                    (android.view.ViewGroup.MarginLayoutParams) holder.row.getLayoutParams();
+            if (lp.leftMargin != m || lp.topMargin != m || lp.rightMargin != m || lp.bottomMargin != m) {
+                lp.setMargins(m, m, m, m);
+                holder.row.setLayoutParams(lp);
+            }
+        }
+
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         String currentUid = currentUser != null ? currentUser.getUid() : null;
         long now = System.currentTimeMillis();
@@ -139,6 +151,7 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
     public static class NoteViewHolder extends RecyclerView.ViewHolder {
         TextView title, content, lockStatus, syncStatus;
         CardView cardView;
+        View row;
         View lockBadge;
         View syncBadge;
         android.widget.ImageView syncIcon;
@@ -147,6 +160,7 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.NoteViewHold
         public NoteViewHolder(@NonNull View itemView) {
             super(itemView);
             cardView = itemView.findViewById(R.id.card_view_note);
+            row = itemView.findViewById(R.id.note_row);
             title = itemView.findViewById(R.id.note_title);
             content = itemView.findViewById(R.id.note_content);
             syncBadge = itemView.findViewById(R.id.note_sync_badge);

@@ -8,20 +8,23 @@
     android:layout_height="wrap_content"
     android:layout_width="match_parent"
     android:layout_margin="8dp"
-    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <LinearLayout
+        android:id="@+id/note_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_margin="12dp"
         android:orientation="horizontal"
-        android:weightSum="100"
-        android:padding="12dp">
+        android:gravity="center_vertical">
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="99"
+            android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
@@ -100,7 +103,6 @@
             android:id="@+id/button_color_picker"
             android:layout_width="52dp"
             android:layout_height="52dp"
-            android:layout_weight="1"
             android:visibility="gone"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/modify_color"

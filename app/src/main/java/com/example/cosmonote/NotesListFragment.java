@@ -35,6 +35,7 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
     private List<Note> notesList;
     private NoteDatabase db;
     private ItemTouchHelper itemTouchHelper;
+    private RecyclerView recyclerView;
 
     public static NotesListFragment newInstanceAll() {
         NotesListFragment fragment = new NotesListFragment();
@@ -81,6 +82,7 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
         notesList = new ArrayList<>();
         adapter = new NotesAdapter(notesList, this);
         recyclerView.setAdapter(adapter);
+        this.recyclerView = recyclerView;
 
         // Charger les notes filtrées (locales ou synchronisées)
         loadAndDisplayNotes();
@@ -198,5 +200,29 @@ public class NotesListFragment extends Fragment implements NotesAdapter.OnNoteCl
         if (isAdded()) {
             loadAndDisplayNotes();
         }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Après un retour d'arrière-plan (ex. écran verrouillé/déverrouillé), le rendu
+        // des items peut rester figé/altéré alors que le layout est correct.
+        // On force la reconstruction des vues pour garantir un rendu propre.
+        forceRecyclerRedraw();
+    }
+
+    private void forceRecyclerRedraw() {
+        if (recyclerView == null || adapter == null) {
+            return;
+        }
+        recyclerView.post(() -> {
+            if (recyclerView == null || adapter == null) {
+                return;
+            }
+            // Vider le pool force la recréation complète des ViewHolders (rendu neuf).
+            recyclerView.getRecycledViewPool().clear();
+            adapter.notifyDataSetChanged();
+            recyclerView.invalidateItemDecorations();
+        });
     }
 }

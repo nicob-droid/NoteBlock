@@ -85,6 +85,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         notesBackgroundImageView = findViewById(R.id.notes_background_image);
         applySavedBackgroundImage();
 
+
         // Lire la date de la dernière note
         lastSeenNoteTimestamp = NotePreferences.loadLastSeenTimestamp(this);
         // Init database
@@ -124,6 +125,7 @@ public class NotesActivity extends BaseActivity  implements NotesAdapter.OnNoteC
         AdRequest adRequest = new AdRequest.Builder().build();
         adView.loadAd(adRequest);
     }
+
 
     private void applySavedBackgroundImage() {
         if (notesBackgroundImageView == null) {

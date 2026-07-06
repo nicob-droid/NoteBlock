@@ -183,4 +183,7 @@
      <string name="note_delete_owner_only">Only the owner can delete this shared note.</string>
      <string name="note_synchronized">Note synced</string>
 
+    <!-- Edit screen -->
+    <string name="edit_note_screen_title">Edit note</string>
+
 </resources>

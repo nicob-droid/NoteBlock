@@ -185,4 +185,7 @@
      <string name="note_delete_owner_only">Seul le propriétaire peut supprimer cette note partagée.</string>
      <string name="note_synchronized">Note synchronisée</string>
 
+    <!-- Écran d'édition -->
+    <string name="edit_note_screen_title">Éditer la note</string>
+
 </resources>
