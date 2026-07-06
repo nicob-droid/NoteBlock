@@ -44,7 +44,7 @@
             android:theme="@style/Theme.NoteBlock.NoActionBar"
             android:label="@string/settings" />
 
-        <!-- AdMob App ID (TEST). Remplace par ton vrai App ID en production -->
+        <!-- AdMob Application ID de PRODUCTION (compte éditeur ca-app-pub-7013455903622493) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-7013455903622493~9579698462"/>
