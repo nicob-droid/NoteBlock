@@ -18,7 +18,7 @@ if (signingPropsFile.exists()) {
 
 android {
     namespace 'com.cosmonote.app'
-    compileSdk 35
+    compileSdk 36
 
     buildFeatures {
         buildConfig true
@@ -27,7 +27,7 @@ android {
     defaultConfig {
         applicationId "com.cosmonote.app"
         minSdk 26
-        targetSdk 35
+        targetSdk 36
 
         versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
         versionName "${versionMajor}.${versionMinor}.${versionPatch}"
